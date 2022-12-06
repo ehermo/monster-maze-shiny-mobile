@@ -8,9 +8,12 @@
 #
 source("game/monster-maze-all.R")
 library(shiny)
+library("keys")
 
 # Define UI for application 
 ui<- fluidPage(
+  useKeys(),
+  keysInput("keys",c("up","left","right")),
     fluidRow(
         column(12,
               # https://groups.google.com/g/shiny-discuss/c/8GmXV-UfTm4?pli=1
@@ -27,30 +30,30 @@ ui<- fluidPage(
                       verbatimTextOutput("level"),
                       tags$head(tags$style(HTML("
                             #level {
-                              font-size: 30px;
+                              font-size: 10px;
                             }
                             "))),
-                      style ="font-size:50px;")),
+                      style ="font-size:20px;")),
              fluidRow(
                column(12,
                       "Legend",
                       verbatimTextOutput("legend"),
                       tags$head(tags$style(HTML("
                             #legend {
-                              font-size: 30px;
+                              font-size: 10px;
                             }
                             "))),
-                      style ="font-size:50px;")),
+                      style ="font-size:20px;")),
              fluidRow(
                column(12,
                       "Actions",
                       verbatimTextOutput("actions"),
                       tags$head(tags$style(HTML("
                             #actions {
-                              font-size: 30px;
+                              font-size: 10px;
                             }
                             "))),
-                      style ="font-size:50px;")
+                      style ="font-size:20px;")
              )
       ),
       
@@ -62,10 +65,10 @@ ui<- fluidPage(
              align="center",
              tags$head(tags$style(HTML("
                             #players_view {
-                              font-size: 50px;
+                              font-size: 15px;
                             }
                             "))),
-             style ="font-size:50px;")),
+             style ="font-size:20px;")),
               fluidRow(
                 column(12,
                   column(width = 4,
@@ -118,18 +121,21 @@ server <- function(input, output) {
 
   game_info <- reactiveValues(
     lives = 6,
-    level_id = "level1"
+    level_key = "level1",
+    level_id = 1,
+    scene = ""
+    
   )
   
   #level_info
-    maze = reactive(game_level_map$get(game_info$level_id)$maze)
-    forward_vision <- reactive(game_level_map$get(game_info$level_id)$forward_vision)
-    rear_vision = reactive(game_level_map$get(game_info$level_id)$rear_vision)
-    num_ghosts =  reactive(game_level_map$get(game_info$level_id)$num_ghosts)
-    num_zombies =  reactive(game_level_map$get(game_info$level_id)$num_zombies)
-    ghost_speed =  reactive(game_level_map$get(game_info$level_id)$ghost_speed)
-    zombie_speed =  reactive(game_level_map$get(game_info$level_id)$zombie_speed)
-    radius_to_exit =  reactive(game_level_map$get(game_info$level_id)$radius_to_exit)
+    maze = reactive(game_level_map$get(game_info$level_key)$maze)
+    forward_vision <- reactive(game_level_map$get(game_info$level_key)$forward_vision)
+    rear_vision = reactive(game_level_map$get(game_info$level_key)$rear_vision)
+    num_ghosts =  reactive(game_level_map$get(game_info$level_key)$num_ghosts)
+    num_zombies =  reactive(game_level_map$get(game_info$level_key)$num_zombies)
+    ghost_speed =  reactive(game_level_map$get(game_info$level_key)$ghost_speed)
+    zombie_speed =  reactive(game_level_map$get(game_info$level_key)$zombie_speed)
+    radius_to_exit =  reactive(game_level_map$get(game_info$level_key)$radius_to_exit)
   
   
  #turn_info 
@@ -144,7 +150,7 @@ server <- function(input, output) {
    player_moves_since_last_zombie_move = reactiveVal(0)
    player_moves = reactiveVal(0)
    
-  
+
   console <- reactiveValues(data=NULL)
 
   observeEvent(TRUE, ignoreNULL = FALSE, ignoreInit = FALSE, once = TRUE, {
@@ -153,25 +159,198 @@ server <- function(input, output) {
                         num_ghosts=num_ghosts(), 
                         num_zombies = num_zombies(), 
                         radius_to_exit = radius_to_exit())
+
+    game_info$scene = "intro"
     player_direction(initial$player_direction)
     player_position(initial$player_position)
     ghost_positions(initial$ghost_positions)
     zombie_positions(initial$zombie_positions)
+
   })
   
   
-  level <- reactive(paste(c(game_level_map$get(game_info$level_id)$name, forward_vision(), player_direction()),collpase="\n"))
+  level <- reactive(paste(c(game_level_map$get(game_info$level_key)$name, forward_vision(), player_direction(),paste0(rep("🧡",game_info$lives),collapse="")),collpase="\n"))
   
+  move_monsters <- reactive({
+    #ghosts move according to ghost speed
+    if (player_moves_since_last_ghost_move() == ghost_speed()) {
+      occupied_positions <- append(zombie_positions(), get_positions_nearby(maze = maze(),this_position = player_position(), radius = 1))
+      ghost_positions(get_random_free_positions(maze = maze(), num = num_ghosts(), occupied_positions = occupied_positions))
+      ghost_moves(ghost_moves() +  1)
+      player_moves_since_last_ghost_move(0)
+    }
+    #zombies move according to zombie speed
+    if (player_moves_since_last_zombie_move() == zombie_speed()) {
+      zombie_positions(move_zombies(maze=maze(),zombie_positions = zombie_positions(), ghost_positions = ghost_positions(), player_position = player_position()))
+      zombie_moves(zombie_moves() +  1)
+      player_moves_since_last_zombie_move(0)
+    }
+    
+   #monster_collision <- check_collision_monster_player(player_position = player_position(),
+  #                                                      ghost_positions = ghost_positions(),
+  #                                                      zombie_positions = zombie_positions())
+    
+    
+    #check_collision_monster_player <- function(player_position, ghost_positions, zombie_positions) {
+      monster_collision <- NONE
+      if (is_player_next_to_any_ghost(player_position(), ghost_positions())) {
+        monster_collision <- GHOST
+        game_info$scene <- "ghost"
+      }
+      else if (is_player_caught_by_any_zombie(player_position(), zombie_positions())) {
+        monster_collision <- ZOMBIE
+        game_info$scene <- "zombie"
+      }
+    #  return(collision)
+  #  }
+    
+    
+    if ( monster_collision != NONE) {
+      after_shuffle <- shuffle(maze=maze(), num_ghosts= num_ghosts(), num_zombies = num_zombies(), radius_to_exit = radius_to_exit())
+      player_position(after_shuffle$player_position)
+      player_direction(after_shuffle$player_direction)
+      ghost_positions(after_shuffle$ghost_positions)
+      zombie_positions(after_shuffle$zombie_positions)
+      ghost_moves(0)
+      player_moves_since_last_ghost_move(0)
+      zombie_moves(0)
+      player_moves_since_last_zombie_move(0)
+      player_moves(0)
+      if(monster_collision == ZOMBIE) {
+        game_info$lives <- game_info$lives - 1
+      }
+      
+      if (game_info$lives == 0) {
+        
+        #TODO
+        console$data = "Game Over"
+      }
+      
+    }
+    
+    
+    
+  })
 
-   players_view <- reactive(build_players_view(maze = maze(),
+   players_view <- reactive({
+                              if (isolate(game_info$scene) == "intro")
+                              {
+                                sound <- sound_map$get("intro")
+                                beep(sound$beep)
+                                duration = sound$duration
+                               
+                                if(duration != 0 ) {
+                                  invalidateLater(duration* 1000)
+                                }
+                                isolate(game_info$scene <-"")
+                                ghost_intro()
+                              }
+                              else if (isolate(game_info$scene) == "ghost") {
+                                sound <- sound_map$get("ghost")
+                                beep(sound$beep)
+                                duration = sound$duration
+                                
+                                if(duration != 0 ) {
+                                  invalidateLater(duration* 1000)
+                                }
+                                isolate(game_info$scene <-"")
+                                ghost_encounter()
+                              }
+                              else if (isolate(game_info$scene) == "zombie") {
+                                sound <- sound_map$get("ghost")
+                                beep(sound$beep)
+                                duration = sound$duration
+       
+                                if(duration != 0 ) {
+                                invalidateLater(duration* 1000)
+                                }
+                                isolate(game_info$scene <-"")
+                                zombie_encounter()
+                              }
+                              else {
+                                build_players_view(maze = maze(),
                                          player_position = player_position(),
                                          ghost_positions = ghost_positions(),
                                          zombie_positions = zombie_positions(),
                                          player_direction = player_direction(),
                                          forward_vision =  forward_vision(),
-                                         rear_vision = rear_vision()))
+                                         rear_vision = rear_vision())
+                              }
+     })
   
    
+  
+  observeEvent(input$keys, {
+     if (input$keys == "left") {
+       console$data <- "left"
+       console$data <- paste0(console$data , turn(player_direction(),"LEFT"))
+       player_direction(turn(player_direction(),"LEFT"))
+       player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
+       player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
+       player_moves(player_moves() + 1)
+       move_monsters()
+       
+     }
+    else if (input$keys == "right"){
+      console$data <- "right"
+      console$data <- paste0(console$data , turn(player_direction(),"RIGHT"))
+      player_direction(turn(player_direction(),"RIGHT"))
+      player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
+      player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
+      player_moves(player_moves() + 1)
+      move_monsters()
+    }
+    else if (input$keys == "up") {
+      console$data <- "forward"
+      
+      next_position <- get_position_forward(player_position(), player_direction())
+      # Wall player collision detection
+      if(can_move_to(maze(),next_position)) {
+        player_position(next_position)
+        player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
+        player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
+        player_moves(player_moves() + 1)
+        if(is_exit(maze(),player_position())) {
+          
+          console$data <- sprintf("You have escaped in %d moves\n", ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move())
+          
+          game_info$level_id <- game_info$level_id + 1
+          if(game_info$level_id < game_level_map$size()) {
+            next_level<-game_level_map$keys()[[game_info$level_id]]
+            game_info$level_key <- next_level
+            initial = shuffle(maze=maze(), 
+                              num_ghosts=num_ghosts(), 
+                              num_zombies = num_zombies(), 
+                              radius_to_exit = radius_to_exit())
+            player_direction(initial$player_direction)
+            player_position(initial$player_position)
+            ghost_positions(initial$ghost_positions)
+            zombie_positions(initial$zombie_positions)
+            ghost_moves(0)
+            player_moves_since_last_ghost_move(0)
+            zombie_moves(0)
+            player_moves_since_last_zombie_move(0)
+            player_moves(0)
+          }
+          else {
+            #TODO
+            console$data <- "you won"
+          }
+          
+          
+        }
+        else {
+          move_monsters()
+          console$data <- "moving monsters"
+        }
+      }
+      else {
+        console$data <- "You are a muggle, you cannot walk through the walls!!\n"
+        
+      }
+    }
+      
+   })
 
   observeEvent(input$left, {
     console$data <- "left"
@@ -180,6 +359,8 @@ server <- function(input, output) {
     player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
     player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
     player_moves(player_moves() + 1)
+    move_monsters()
+    console$data <- paste0("moving monsters" , zombie_speed(), player_moves_since_last_zombie_move(),sep=" ")
   })
   
   observeEvent(input$right, {
@@ -189,6 +370,8 @@ server <- function(input, output) {
     player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
     player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
     player_moves(player_moves() + 1)
+    move_monsters()
+    console$data <- "moving monsters"
   })
   
   observeEvent(input$forward, {
@@ -204,6 +387,35 @@ server <- function(input, output) {
       if(is_exit(maze(),player_position())) {
         
         console$data <- sprintf("You have escaped in %d moves\n", ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move())
+        
+        game_info$level_id <- game_info$level_id + 1
+        if(game_info$level_id < game_level_map$size()) {
+          next_level<-game_level_map$keys()[[game_info$level_id]]
+          game_info$level_key <- next_level
+          initial = shuffle(maze=maze(), 
+                            num_ghosts=num_ghosts(), 
+                            num_zombies = num_zombies(), 
+                            radius_to_exit = radius_to_exit())
+          player_direction(initial$player_direction)
+          player_position(initial$player_position)
+          ghost_positions(initial$ghost_positions)
+          zombie_positions(initial$zombie_positions)
+          ghost_moves(0)
+          player_moves_since_last_ghost_move(0)
+          zombie_moves(0)
+          player_moves_since_last_zombie_move(0)
+          player_moves(0)
+        }
+        else {
+          #TODO
+          console$data <- "you won"
+        }
+          
+        
+      }
+      else {
+        move_monsters()
+        console$data <- "moving monsters"
       }
     }
     else {
@@ -211,6 +423,8 @@ server <- function(input, output) {
     
     }
   })
+  
+
 
   output$banner = renderText({ title()})
   output$legend = renderText({legend()})

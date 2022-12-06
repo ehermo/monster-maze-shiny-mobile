@@ -62,15 +62,15 @@ sound_map$set("intro" ,list("beep" = 8,  "duration" = 6))
 # Graph map
 # https://invisible-characters.com/
 #graph_sep="\U17B5\U2063" # each invisible char works on a different terminal
-graph_sep="" # each invisible char works on a different terminal
+#graph_sep=" " # each invisible char works on a different terminal
 # https://www.w3schools.com/charsets/ref_emoji.asp
 graph_map <- dict()
-graph_map$set(WALL,     list("block"=paste0("🏾",graph_sep),"desc"="wall")) 
-graph_map$set(CORRIDOR, list("block"=paste0("🏻",graph_sep),"desc"="corridor"))
-graph_map$set(GHOST,    list("block"=paste0("👻",graph_sep), "desc"="ghost" ))
-graph_map$set(EXIT,     list("block"=paste0("🏆",graph_sep),"desc"="exit"))
-graph_map$set(PLAYER,   list("block"=paste0("\U1F464",graph_sep),"desc"="player")) 
-graph_map$set(ZOMBIE,   list("block"=paste0("🧟",graph_sep),"desc"="zombie"))
+graph_map$set(WALL,     list("block"="🏾","desc"="wall")) 
+graph_map$set(CORRIDOR, list("block"="🏻","desc"="corridor"))
+graph_map$set(GHOST,    list("block"="👻", "desc"="ghost" ))
+graph_map$set(EXIT,     list("block"="🏆","desc"="exit"))
+graph_map$set(PLAYER,   list("block"="\U1F464","desc"="player")) 
+graph_map$set(ZOMBIE,   list("block"="🧟","desc"="zombie"))
 
 #https://stackoverflow.com/questions/27112370/make-readline-wait-for-input-in-r
 user_input <- function(prompt) {
