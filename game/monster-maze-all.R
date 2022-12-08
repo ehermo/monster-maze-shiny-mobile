@@ -5,8 +5,18 @@
 
 # Packages
 # https://statsandr.com/blog/an-efficient-way-to-install-and-load-r-packages/
-install.packages("pacman", repos = "http://cran.us.r-project.org")
-pacman::p_load(collections, knitr, invctr, beepr, dplyr, stringr,purrr)
+# install.packages("pacman", repos = "http://cran.us.r-project.org")
+# pacman::p_load(collections, knitr, invctr, beepr, dplyr, stringr,purrr)
+
+#install.packages(c('collections', 'knitr', 'invctr', 'beepr', 'dplyr', 'stringr','purrr'),quiet = TRUE)
+library(collections)
+library(knitr)
+library(invctr)
+library(beepr)
+library(dplyr)
+library(stringr)
+library(purrr)
+                 
 
 # Constants
 NONE <- -1
@@ -28,24 +38,20 @@ DIRECTIONS <- c("N", "E", "S", "W")
 action_map <- dict()
 action_map$set("walk" ,
                list(
-                 "desc" = "walk forward  👆",
-                 "keys" = c("w","W"),
-                 "echo" = "%s: moving forward 👆"))
+                 "desc" = "walk forward ↑",
+                 "keys" = c("up arrow"),
+                 "echo" = "%s: moving forward ↑"))
 action_map$set("turnr",
                list(
-                 "desc" = "turn right    👉", 
-                 "keys" = c("d","D"),
-                 "echo" = "%s: turning right 👉"))
+                 "desc" = "turn right →", 
+                 "keys" = c("right arrow"),
+                 "echo" = "%s: turning right →"))
 action_map$set("turnl",
                list(
-                 "desc" = "turn left     👈",
-                 "keys" = c("a","A"),
-                 "echo" = "%s: turning left 👈"))
-action_map$set("quit" ,
-               list(
-                 "desc" = "quit the game 👋", 
-                 "keys" = c("q","Q"),
-                 "echo" = "%s: leaving..."))
+                 "desc" = "turn left ←",
+                 "keys" = c("left arrow"),
+                 "echo" = "%s: turning left ←"))
+
 # Sound map
 # * key (name): ""
 # * value (sound):
@@ -72,32 +78,6 @@ graph_map$set(EXIT,     list("block"="🏆","desc"="exit"))
 graph_map$set(PLAYER,   list("block"="\U1F464","desc"="player")) 
 graph_map$set(ZOMBIE,   list("block"="🧟","desc"="zombie"))
 
-#https://stackoverflow.com/questions/27112370/make-readline-wait-for-input-in-r
-user_input <- function(prompt) {
-  if (interactive()) {
-    return(readline(prompt))
-  } else {
-    cat(prompt)
-    return(readLines("stdin", n=1))
-  }
-}
-
-# @misc{ wiki:xxx,
-#   author = "Rosetta Code",
-#   title = "Terminal control/Clear the screen --- Rosetta Code{,} ",
-#   year = "2022",
-#   url = "https://rosettacode.org/w/index.php?title=Terminal_control/Clear_the_screen&oldid=328572",
-#   note = "[Online; accessed 5-October-2022]"
-# }
-clear_screen <- function() {
-  if (interactive()) {
-    cat("\014") #cat("\f")
-  } else {
-    cat("\33[2J")
-  }
-}
-
-#
 convert_to_invctr_position <- function(position) {
   invctr_position <- data.frame(nv=1, row=position$row, col=position$col, row.names = NULL)
 }
@@ -203,6 +183,49 @@ ghost_intro <- "
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+"
+}
+
+level_up <- function() {
+"                                                                                                                                                   
+▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓████████
+▒▒▓▓▓▓██▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓██████▒▒
+▒▒▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓██▓▓░░░░
+▒▒██▓▓▓▓██▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓██▓▓░░░░▒▒
+▒▒▒▒████████▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓████▒▒░░▒▒▒▒
+░░░░░░░░▓▓██▓▓▓▓░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▓▓██████░░░░░░▒▒
+░░░░░░░░▒▒▓▓▓▓▓▓▒▒░░░░░░▒▒░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▓▓▓▓██▓▓▒▒░░░░░░
+░░░░░░░░░░▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▒▒░░░░░░▒▒
+░░░░░░░░░░░░▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒
+░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▒▒░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒
+░░░░░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒░░▒▒▒▒▒▒▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░▓▓▒▒▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░▒▒▓▓▓▓▒▒▓▓▒▒▒▒░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░▒▒▒▒▓▓▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░░░░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒░░░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░░░░░▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▓▓░░░░░░░░░░▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░
+  ░░░░░░  ░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░░░▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░░░░░░░▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░░░▓▓▒▒▓▓▓▓████▓▓░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░  ░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒░░▒▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▓▓▒▒░░▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░
+        ░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒░░░░▒▒░░▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+          ░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                      ░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▒▒▓▓▓▓▒▒▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                                  ░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                                    ░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                                    ░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓██████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                                      ░░▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓████████████████▓▓▓▓██▓▓▓▓██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                                          ▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                          ░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                      ░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓██▓▓▓▓██████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+░░░░░░░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
+░░░░░░░░░░░░░░░░░░░░▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓▓▓▓▓▓▓▓▓▓████▓▓████▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒
 "
 }
 
@@ -440,55 +463,12 @@ actions <- function() {
   colnames(pane1) <- c("Actions")
   action_idx <- 1
   for(action_value in action_map$values()) {
-    pane1[action_idx,"Actions"] <- paste0("• ", action_value$desc," ", paste(action_value$keys,collapse=" or "))
+    pane1[action_idx,"Actions"] <- paste0("", action_value$desc," ", paste(action_value$keys,collapse=" or "))
     action_idx <- action_idx + 1
   }
   paste(pane1,collapse="\n")
 }
-# 
-# Layout
-# - Game title
-# - Legend
-# - Actions
-# - Level
-# - Lives
-# - Player's V  iew
-render_view <- function(maze, direction, action_map, graph_map, level, lives) {
-  echo(title(),clear=T)
-  action_height <- action_map$size()
-  legend_height <- graph_map$size()
-  map_height <- nrow(maze)
-  pane1_height <- max(c(legend_height, action_height)) + 1
-  pane1 <- matrix("", nrow = pane1_height, ncol = 2 )
-  colnames(pane1) <- c("Legend","Actions")
-  pane2_height <- map_height + 1
-  pane2 <- matrix("", nrow = pane2_height, ncol = 1 )
-  colnames(pane2) <- c("Map")
-  pane2[1,"Map"] <- ".\t\t\tPlayer's View"
-  map_idx <- 2
-  for (line in apply(maze, 1, paste, collapse = "")) {
-    pane2[map_idx,"Map"] <- paste0(".\t\t\t",line,"")
-    map_idx <- map_idx + 1
-  }
-  pane1[1,"Legend"] <- "Legend"
-  legend_idx <- 2
-  for(stripe in graph_map$values()) {
-    pane1[legend_idx,"Legend"] <- paste0("• ", stripe$block," ", stripe$desc)
-    legend_idx <- legend_idx + 1
-  }
-  pane1[1,"Actions"] <- "Actions"
-  action_idx <- 2
-  for(action_value in action_map$values()) {
-    pane1[action_idx,"Actions"] <- paste0("• ", action_value$desc," ", paste(action_value$keys,collapse=" or "))
-    action_idx <- action_idx + 1
-  }
-  cat("\n")
-  cat(paste(pane1,collapse="\n"))
-  cat(level,"\n")
-  cat(paste0("Lives: ", paste(rep("🧡",lives),sep="",collapse=" "),"\n"))
-  cat(paste(pane2,collapse="\n"))
-  cat("\n\n\n\n\n")
-}
+
 
 #
 turn <- function(direction, towards) {
@@ -511,21 +491,6 @@ play <- function(sound_map, x) {
   beep(sound$beep)
 }
 
-#
-echo <- function(msg, sound_map = NULL, sound_key=NULL, clear = FALSE, duration = 0){
-  if (clear == T) {
-    clear_screen()
-  }
-  if (!is.null(sound_key)) {
-    sound <- sound_map$get(sound_key)
-    beep(sound$beep)
-    duration = sound$duration
-  }
-  cat(paste0(msg,"\n"))
-  if(duration != 0 ) {
-    Sys.sleep(duration)
-  }
-}
 
 #
 get_closer_to_player <- function(maze, position_1, position_2, occupied_positions) {
@@ -691,141 +656,47 @@ check_collision_monster_player <- function(player_position, ghost_positions, zom
 }
 
 
-play <- function(level,lives,action_map, graph_map, sound_map) {
-  maze <- level$maze
-  forward_vision <- level$forward_vision
-  rear_vision <- level$rear_vision
-  num_ghosts <- level$num_ghosts
-  num_zombies <- level$num_zombies
-  ghost_speed <- level$ghost_speed
-  zombie_speed <- level$zombie_speed
-  radius_to_exit <- level$radius_to_exit
-  level_name <- level$name
-  this_lives <- lives
-  
-  #setting board
-  after_shuffle <- shuffle(maze=maze, num_ghosts= num_ghosts, num_zombies = num_zombies, radius_to_exit = radius_to_exit)
-  player_position <- after_shuffle$player_position
-  player_direction <- after_shuffle$player_direction
-  ghost_positions <- after_shuffle$ghost_positions
-  zombie_positions <- after_shuffle$zombie_positions
-  ghost_moves <- 0
-  player_moves_since_last_ghost_move <- 0
-  zombie_moves <- 0
-  player_moves_since_last_zombie_move <- 0
-  player_moves <- 0
 
-  # Game loop
-  while(T) {
-    
-    #monster (ghost,zombie) player collision detection
-    monster_collision <- check_collision_monster_player(player_position = player_position,
-                                                        ghost_positions = ghost_positions,
-                                                        zombie_positions = zombie_positions)
-    if ( monster_collision != NONE) {
-      after_shuffle <- shuffle(maze=maze, num_ghosts= num_ghosts, num_zombies = num_zombies, radius_to_exit = radius_to_exit)
-      player_position <- after_shuffle$player_position
-      player_direction <- after_shuffle$player_direction
-      ghost_positions <- after_shuffle$ghost_positions
-      zombie_positions <- after_shuffle$zombie_positions
-      ghost_moves <- 0
-      player_moves_since_last_ghost_move <- 0
-      zombie_moves <- 0
-      player_moves_since_last_zombie_move <- 0
-      player_moves <- 0
-      if(monster_collision == ZOMBIE) {
-        this_lives <- this_lives - 1
-      }
-    }
-    
-    if(this_lives == 0) {
-      return(this_lives)
-    }
-    #what the player can see
-    maze_view <- what_player_can_see(maze = maze,
-                                     player_position = player_position, 
-                                     ghost_positions = ghost_positions,
-                                     zombie_positions = zombie_positions,
-                                     direction = player_direction,
-                                     forward_vision = forward_vision,
-                                     rear_vision  = rear_vision)
-    #render player view
-    render_view(
-      maze=get_graphics(maze_view,graph_map),
-      direction = player_direction,
-      action_map = action_map,
-      graph_map = graph_map, 
-      level =level_name,
-      lives = this_lives)
-    
-    #player input 
-    repeat {
-      input <- user_input("Choose your next move and press enter: ")
-      if (input %in% action_map$get("turnl")$keys) {
-        action <- action_map$get("turnl")
-        echo(sprintf(action$echo, input),sound_map,"move")
-        player_direction <- turn(player_direction,"LEFT")
-        player_moves_since_last_ghost_move <- player_moves_since_last_ghost_move + 1
-        player_moves_since_last_zombie_move <- player_moves_since_last_zombie_move + 1
-        player_moves <- player_moves + 1
-        break
-      } 
-      else if (input %in% action_map$get("turnr")$keys) {
-        action <- action_map$get("turnr")
-        echo(sprintf(action$echo, input),sound_map,"move")
-        player_direction <- turn(player_direction,"RIGHT")
-        player_moves_since_last_ghost_move <- player_moves_since_last_ghost_move + 1
-        player_moves_since_last_zombie_move <- player_moves_since_last_zombie_move + 1
-        player_moves <- player_moves + 1
-        break
-      } 
-      else if (input %in% action_map$get("walk")$keys) {
-        action <- action_map$get("walk")
-        echo(sprintf(action$echo, input),sound_map,"move")
-        next_position <- get_position_forward(player_position, player_direction)
-        # Wall player collision detection
-        if(can_move_to(maze,next_position)) {
-          player_position <- next_position
-          player_moves_since_last_ghost_move <- player_moves_since_last_ghost_move + 1
-          player_moves_since_last_zombie_move <- player_moves_since_last_zombie_move + 1
-          player_moves <- player_moves + 1
-          if(is_exit(maze,player_position)) {
-            render_bye()
-            echo(sprintf("You have escaped in %d moves\n", ghost_moves * ghost_speed + player_moves_since_last_ghost_move),sound_map,"finish")
-            return(this_lives)
-          }
-          break
-        }
-        else {
-          cat("You are a muggle, you cannot walk through the walls!!\n")
-        }
-      } 
-      else if (input %in% action_map$get("quit")$keys) {
-        action <- action_map$get("quit")
-        echo(sprintf(action$echo, input),sound_map,"quit")
-        echo("We miss you already\n")
-        return(-1)
-      } 
-      else if (input %in% c("x","X")) {
-        return(-1)
-      }
-    }
-    
-    #ghosts move according to ghost speed
-    if (player_moves_since_last_ghost_move == ghost_speed) {
-      occupied_positions <- append(zombie_positions, get_positions_nearby(maze = maze,this_position = player_position, radius = 1))
-      ghost_positions <- get_random_free_positions(maze = maze, num = num_ghosts, occupied_positions = occupied_positions)
-      ghost_moves <- ghost_moves +  1
-      player_moves_since_last_ghost_move <- 0
-    }
-    #zombies move according to zombie speed
-    if (player_moves_since_last_zombie_move == zombie_speed) {
-      zombie_positions <- move_zombies(maze=maze,zombie_positions = zombie_positions, ghost_positions = ghost_positions, player_position = player_position)
-      zombie_moves <- zombie_moves +  1
-      player_moves_since_last_zombie_move <- 0
-    }
-  } #end play
-}
+# Scene map
+scene_map <- dict()
+scene_map$set("intro",list("name" ="intro",
+                           "sound" = list("beep" = 8,  "duration" = 6),
+                           "ascii" = ghost_intro(),
+                           "invalidate" = TRUE
+)
+)
+scene_map$set("ghost",list("name" ="ghost",
+                           "sound" = list("beep" = 9,  "duration" = 3),
+                           "ascii" = ghost_encounter(),
+                           "invalidate" = TRUE
+)
+)
+scene_map$set("zombie",list("name" ="zombie",
+                            "sound" = list("beep" = 9,  "duration" = 3),
+                            "ascii" = zombie_encounter(),
+                            "invalidate" = TRUE
+)
+)
+scene_map$set("new_level",list("name" ="new_level",
+                               "sound" = list("beep" = 3,  "duration" = 3),
+                               "ascii" = level_up(),
+                               "invalidate" = TRUE
+)
+)
+scene_map$set("end",list("name" ="end",
+                         "sound" = list("beep" = 3,  "duration" = 3),
+                         "ascii" = game_over(),
+                         "invalidate" = FALSE
+)
+)
+scene_map$set("you_won",list("name" ="you_won",
+                             "sound" = list("beep" = 3,  "duration" = 3),
+                             "ascii" = you_won(),
+                             "invalidate" = FALSE
+)
+)
+
+#
 
 # Mazes
 maze0_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0)
@@ -846,13 +717,13 @@ maze1_data <- c(maze1_data,0,0,0,0,0,0,0,9,0,0)
 maze1 = matrix(maze1_data,nrow=7,ncol=10,byrow=TRUE);
 
 maze2_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze2_data <- c(maze2_data,0,1,1,1,1,0,0,1,1,1,0,0,0)
+maze2_data <- c(maze2_data,0,1,1,1,1,0,0,1,1,1,1,0,0)
 maze2_data <- c(maze2_data,0,0,1,0,0,1,1,1,0,0,1,0,0)
 maze2_data <- c(maze2_data,0,1,1,1,0,1,0,1,1,0,1,0,0)
 maze2_data <- c(maze2_data,0,0,0,1,0,1,0,1,1,1,1,1,0)
 maze2_data <- c(maze2_data,0,0,1,1,1,1,0,1,1,0,0,1,0)
 maze2_data <- c(maze2_data,0,1,1,0,9,0,0,1,0,0,0,1,0)
-maze2_data <- c(maze2_data,0,0,1,1,1,1,1,1,0,0,0,1,0)
+maze2_data <- c(maze2_data,0,0,1,1,1,1,1,1,1,1,1,1,0)
 maze2_data <- c(maze2_data,0,0,0,0,0,0,0,0,0,0,0,0,0)
 maze2 = matrix(maze2_data,nrow=9,ncol=13,byrow=TRUE);
 
@@ -911,51 +782,51 @@ maze5 = matrix(maze5_data,nrow=16,ncol=15,byrow=TRUE);
 # Game level map
 game_level_map <- dict()
 game_level_map$set("level1",list(
-  "name"="Level 1",
+  "name"="1",
   "maze"=maze1,
   "num_ghosts"= 2,
   "ghost_speed"=3,
   "num_zombies"=0,
   "zombie_speed"=0,
-  "forward_vision"= 8,
+  "forward_vision"= 6,
   "rear_vision"= 3,
   "radius_to_exit"=5
 ))
 game_level_map$set("level2",list(
-  "name"="Level 2",
+  "name"="2",
   "maze"=maze1,
   "num_ghosts"= 2,
   "ghost_speed"=3,
   "num_zombies"=1,
   "zombie_speed"=3,
-  "forward_vision"=8,
+  "forward_vision"=6,
   "rear_vision"=3,
   "radius_to_exit"=5
 ))
 game_level_map$set("level3",list(
-  "name"="Level 3",
+  "name"="3",
   "maze"=maze2,
   "num_ghosts"=2,
   "ghost_speed"=3,
   "num_zombies"=2,
   "zombie_speed"=3,
-  "forward_vision"=8,
+  "forward_vision"=6,
   "rear_vision"=3,
   "radius_to_exit"=5
 ))
 game_level_map$set("level4",list(
-  "name"="Level 4",
+  "name"="4",
   "maze"=maze4,
   "num_ghosts"=4,
   "ghost_speed"=3,
   "num_zombies"=3,
   "zombie_speed"=2,
-  "forward_vision"=8,
+  "forward_vision"=6,
   "rear_vision"=3,
   "radius_to_exit"=5
 ))
 game_level_map$set("level5",list(
-  "name"="Level 5",
+  "name"="5",
   "maze"=maze2,
   "num_ghosts"=2,
   "ghost_speed"=3,
@@ -966,7 +837,7 @@ game_level_map$set("level5",list(
   "radius_to_exit"=5
 ))
 game_level_map$set("level6",list(
-  "name"="Level 6",
+  "name"="6",
   "maze"= maze0,
   "num_ghosts"=3,
   "ghost_speed"=3,
@@ -977,7 +848,7 @@ game_level_map$set("level6",list(
   "radius_to_exit"=3
 ))
 game_level_map$set("level7",list(
-  "name"="Level 7",
+  "name"="7",
   "maze"=maze3,
   "num_ghosts"=3,
   "ghost_speed"=3,
@@ -988,7 +859,7 @@ game_level_map$set("level7",list(
   "radius_to_exit"=5
 ))
 game_level_map$set("level8",list(
-  "name"="Level 8",
+  "name"="8",
   "maze"=maze3,
   "num_ghosts"=3,
   "ghost_speed"=3,
@@ -999,7 +870,7 @@ game_level_map$set("level8",list(
   "radius_to_exit"=6
 ))
 game_level_map$set("level9",list(
-  "name"="Level 9",
+  "name"="9",
   "maze"=maze5,
   "num_ghosts"=3,
   "ghost_speed"=3,
@@ -1010,25 +881,6 @@ game_level_map$set("level9",list(
   "radius_to_exit"=5
 ))
 
-# # Game init
-# set.seed(NULL)  
-# lives <- 6
-# 
-# # Play Intro
-# echo(title(),sound_map,"move", clear=TRUE)
-# echo(ghost_intro(),sound_map,"intro")
-# 
-# for (this_level in game_level_map$values()) {
-#   lives <- play(level=this_level,lives=lives, action_map = action_map, graph_map = graph_map, sound_map = sound_map)
-#   if(lives <= 0) {
-#     break
-#   }
-# }
-# if(lives <=0 ){
-#   echo(msg=game_over(),clear= TRUE)
-# } else {
-#   echo(msg=you_won(), clear=TRUE)
-# }
 
 
 
