@@ -28,7 +28,6 @@ ZOMBIE <- 3
 PLAYER <- 5
 DIRECTIONS <- c("N", "E", "S", "W")
 
-
 # Action map
 # * key (name):""
 # * value (action): list
@@ -36,21 +35,22 @@ DIRECTIONS <- c("N", "E", "S", "W")
 # * * keys (keyboard):c()
 # * * echo:""
 action_map <- dict()
+action_map$set("turnl",
+               list(
+                 "desc" = "turn left ←L",
+                 "keys" = c("left arrow"),
+                 "echo" = "%s: turning left ←"))
 action_map$set("walk" ,
                list(
-                 "desc" = "walk forward ↑",
+                 "desc" = "walk forward ↑F",
                  "keys" = c("up arrow"),
                  "echo" = "%s: moving forward ↑"))
 action_map$set("turnr",
                list(
-                 "desc" = "turn right →", 
+                 "desc" = "turn right →R", 
                  "keys" = c("right arrow"),
                  "echo" = "%s: turning right →"))
-action_map$set("turnl",
-               list(
-                 "desc" = "turn left ←",
-                 "keys" = c("left arrow"),
-                 "echo" = "%s: turning left ←"))
+
 
 # Sound map
 # * key (name): ""
@@ -371,7 +371,7 @@ is_player_caught_by_any_zombie <- function(player_position, zombie_positions) {
 get_graphics <- function(maze_view,graph_map) {
   nrow <- nrow(maze_view)
   ncol <- ncol(maze_view)
-  matrix(lapply(lapply(c(maze_view),graph_map$get),function(x) {return (x$block)}), nrow,ncol)
+  matrix(lapply(lapply(c(maze_view),graph_map$get),function(x) {return (paste0("<td style='padding-top:3px;margin-top:3px;'>",x$block,"</td>",sep=""))}), nrow,ncol)
 }
 
 #
@@ -657,41 +657,68 @@ check_collision_monster_player <- function(player_position, ghost_positions, zom
 
 
 
-# Scene map
+audio_files_dir <- system.file("sounds", package = "beepr")
+addResourcePath("sample_audio", audio_files_dir)
+audio_files <- file.path("sample_audio", list.files(audio_files_dir, ".wav$"))
+
+
+intro_wav <-"sample_audio/smb_stage_clear.wav"
+new_level_wav <- "sample_audio/victory_fanfare_mono.wav"
+ghost_wav <- "sample_audio/wilhelm.wav"
+zombie_wav <- "sample_audio/wilhelm.wav"
+
 scene_map <- dict()
 scene_map$set("intro",list("name" ="intro",
-                           "sound" = list("beep" = 8,  "duration" = 6),
+                           "sound" = list("beep" = 8,  
+                                          "wav" = intro_wav,
+                                          "duration" = 6),
                            "ascii" = ghost_intro(),
+                           "size" = "5",
                            "invalidate" = TRUE
 )
 )
 scene_map$set("ghost",list("name" ="ghost",
-                           "sound" = list("beep" = 9,  "duration" = 3),
+                           "sound" = list("beep" = 9,  
+                                          "wav" = ghost_wav,
+                                          "duration" = 3),
                            "ascii" = ghost_encounter(),
+                           "size" = "5",
                            "invalidate" = TRUE
 )
 )
 scene_map$set("zombie",list("name" ="zombie",
-                            "sound" = list("beep" = 9,  "duration" = 3),
+                            "sound" = list("beep" = 9,
+                                           "wav" = zombie_wav,
+                                           "duration" = 3),
                             "ascii" = zombie_encounter(),
+                            "size" = "5",
                             "invalidate" = TRUE
 )
 )
 scene_map$set("new_level",list("name" ="new_level",
-                               "sound" = list("beep" = 3,  "duration" = 3),
+                               "sound" = list("beep" = 3, 
+                                              "wav" = new_level_wav,
+                                              "duration" = 3),
                                "ascii" = level_up(),
+                               "size" = "3",
                                "invalidate" = TRUE
 )
 )
 scene_map$set("end",list("name" ="end",
-                         "sound" = list("beep" = 3,  "duration" = 3),
+                         "sound" = list("beep" = 3, 
+                                        "wav" = new_level_wav,
+                                        "duration" = 3),
                          "ascii" = game_over(),
+                         "size" = "8",
                          "invalidate" = FALSE
 )
 )
 scene_map$set("you_won",list("name" ="you_won",
-                             "sound" = list("beep" = 3,  "duration" = 3),
+                             "sound" = list("beep" = 3,
+                                            "wav" = new_level_wav,
+                                            "duration" = 3),
                              "ascii" = you_won(),
+                             "size" = "8",
                              "invalidate" = FALSE
 )
 )
@@ -733,7 +760,7 @@ maze3_data <- c(maze3_data,0,1,0,1,1,1,1,0,1,1,1,1,0,0,0)
 maze3_data <- c(maze3_data,0,1,1,1,1,1,1,0,1,1,1,1,0,0,0)
 maze3_data <- c(maze3_data,0,0,1,0,0,1,1,1,1,0,0,1,1,0,0)
 maze3_data <- c(maze3_data,0,1,1,1,1,1,1,0,1,1,1,1,0,0,0)
-maze3_data <- c(maze3_data,0,0,1,1,1,1,1,0,1,0,0,0,1,0,0)
+maze3_data <- c(maze3_data,0,0,1,1,1,1,1,0,1,0,0,1,1,0,0)
 maze3_data <- c(maze3_data,0,1,1,1,0,1,1,0,1,1,0,1,0,0,0)
 maze3_data <- c(maze3_data,0,0,1,1,0,1,1,0,1,1,1,1,1,1,0)
 maze3_data <- c(maze3_data,0,0,1,1,0,1,1,9,1,1,0,0,0,1,0)

@@ -7,13 +7,21 @@
 #    http://shiny.rstudio.com/
 #
 source("game/monster-maze-all.R")
+#install.packages(c("howler","shinyjs"))
 library(shiny)
-library("keys")
+library("howler")
+library("shinyjs")
 
 # Define UI for application 
 ui<- fluidPage(
-  useKeys(),
-  keysInput("keys",c("up","left","right")),
+  useShinyjs(),  
+  howler(
+    elementId = "sound", 
+    tracks = list("Track 1" = "sample_audio/smb_stage_clear.wav"),
+    auto_continue = FALSE,
+    auto_loop = FALSE,
+    seek_ping_rate = 1000
+  ),
     fluidRow(
         column(12,
               # https://groups.google.com/g/shiny-discuss/c/8GmXV-UfTm4?pli=1
@@ -21,81 +29,65 @@ ui<- fluidPage(
               align="center",
               tags$head(tags$style(HTML("
                             #banner {
-                              font-size: 7px;
+                              font-size: 4px;
                               background-color: black;
                               color:green;
                             }
                             "))),
               style ="font-size:10px;")),
     fluidRow(
-      column(4,
-             #"Side Panel",
-             fluidRow(
-               column(12,
-                      "Level & Lives",
-                      verbatimTextOutput("level"),
-                      tags$head(tags$style(HTML("
-                            #level {
-                              font-size: 40px;
-                              background-color: black;
-                              color:green;
-                            }
-                            "))),
-                      style ="font-size:20px;")),
-             fluidRow(
-               column(12,
-                      "Legend",
-                      verbatimTextOutput("legend"),
-                      tags$head(tags$style(HTML("
-                            #legend {
-                              font-size: 20px;
-                              background-color: black;
-                              color:green;
-                            }
-                            "))),
-                      style ="font-size:20px;")),
-             fluidRow(
-               column(12,
-                      "Keys",
-                      verbatimTextOutput("keys"),
-                      tags$head(tags$style(HTML("
-                            #keys {
-                              font-size: 20px;
-                              background-color: black;
-                              color:green;
-                            }
-                            "))),
-                      style ="font-size:20px;")
-             )
-      ),
-      
-      column(width = 8,
-             fluidRow(
-               column (12,
-             "Player's View",
-             htmlOutput("players_view"),
-             align="center",
+      column(12,
+            # "Level & Lives",
+             verbatimTextOutput("level"),
              tags$head(tags$style(HTML("
-                            #players_view {
-                              font-size: 15px;
-                              background-color: white;
-                              color:black;
-                            }
-                            "))),
-             style ="font-size:20px;")),
+              #level {
+                font-size: 15px;
+                background-color: black;
+                color:green;
+               }"))),
+              style ="font-size:20px;")),
+
+      fluidRow(
+        column (12,
+          # "Player's View",
+          htmlOutput("players_view"),
+          align="center",
+          tags$head(tags$style(HTML("
+            #players_view {
+              font-size: 15px;
+              background-color: white;
+              color:black;
+            }"))),
+          style ="font-size:20px;")),
       fluidRow(
         column(12,
-        "Console",
+          actionButton("left","L",  icon = icon("arrow-left", lib="glyphicon"), width = "30%", class = "btn-success", style="padding: 10px 20px; border-radius: 10px;"), 
+          actionButton("forward","F",  icon = icon("arrow-up", lib="glyphicon"),width = "30%", class = "btn-info",  style="padding: 10px 20px; border-radius: 10px;"),
+          actionButton("right","R", icon = icon("arrow-right", lib="glyphicon"),width = "30%", class = "btn-warning", style="padding: 10px 20px; border-radius: 10px;"), align="center"
+        ),style ="padding-top:0.5em;margin-bottom:0.5em;"),
+      fluidRow(
+        column(12,
+        #"Console",
         verbatimTextOutput("console"),
         tags$head(tags$style(HTML("
                             #cosole {
                               font-size: 15px;
                             }"))),
-        style ="font-size:20px;"
-      ))
-
-)),
-style="background-color: black;color:green;"
+        style ="font-size:20px;padding-top:0.5em;"
+      )),
+      fluidRow(
+        column(12,
+               "Buttons",
+               verbatimTextOutput("keys"),
+               tags$head(tags$style(HTML("
+              #keys {
+                font-size: 15px;
+                background-color: black;
+                color:green;
+              }"))),
+               style ="font-size:20px;")
+      ),
+  style="background-color: black;color:green;"
 )
     
 #
@@ -116,14 +108,17 @@ build_players_view <- function(maze,
                                    rear_vision  = rear_vision)
   view = get_graphics(maze_view,graph_map)
   map_height <- nrow(view)
-  pane2_height <- map_height + 1
+  pane2_height <- map_height + 3
   pane2 <- matrix("", nrow = pane2_height, ncol = 1 )
   colnames(pane2) <- c("Map")
   map_idx <- 1
+  pane2[map_idx,"Map"] <- '<table  style="border-spacing:0;border-collapse:collapse;line-height:1.1em;" border="0" borderspacing="0"'
+  map_idx <- map_idx + 1
   for (line in apply(view, 1, paste, collapse = "")) {
-    pane2[map_idx,"Map"] <- paste0('<p style="margin-top: -0.6em;padding-top:0;">',line,'</p>')
+    pane2[map_idx,"Map"] <- paste0('<tr style="padding:0;margin:0px;">',line,'</tr>')
     map_idx <- map_idx + 1
   }
+  pane2[map_idx,"Map"] <- '</table'
   return(paste(pane2,collapse=""))
 }
 
@@ -160,32 +155,36 @@ server <- function(input, output) {
   
   #console 
   console <- reactiveValues(data=NULL)
-  console$data <- "
-39 years have passed since the unsettling events in that creepy sort of place known as 'Ghost Maze'.
+  console$data <- "** CLICK ANYWHERE TO PLAY THE AUDIO **
+  
+39 years have passed since the unsettling events 
+in that creepy sort of place known as 'Ghost Maze'.
 The yells and shouts haven’t ceased ever since. 
-But it has only been recently when villagers have started to claim that something new has now nested and dwells inside those walls.
+But it has only been recently when villagers have 
+started to claim that something new has now 
+nested and dwells inside those walls.
 "
   #banner
   banner = reactiveVal(title())
 
   # set the initial values 
   observeEvent(TRUE, ignoreNULL = FALSE, ignoreInit = FALSE, once = TRUE, {
-  initial = shuffle(maze=maze(), 
+      initial = shuffle(maze=maze(), 
                         num_ghosts=num_ghosts(), 
                         num_zombies = num_zombies(), 
                         radius_to_exit = radius_to_exit())
 
-    game_info$scene = "intro"
-    player_direction(initial$player_direction)
-    player_position(initial$player_position)
-    ghost_positions(initial$ghost_positions)
-    zombie_positions(initial$zombie_positions)
+      game_info$scene = "intro"
+      player_direction(initial$player_direction)
+      player_position(initial$player_position)
+      ghost_positions(initial$ghost_positions)
+      zombie_positions(initial$zombie_positions)
   })
   
   #reactive expression to determine the level and lives based on level_key and lives
   level <- reactive(paste(c(
-                            paste0(c(game_level_map$get(game_info$level_key)$name,"/",game_level_map$size()),sep="",collapse=""),
-                            paste0(rep("🧡",game_info$lives),collapse="")
+                            paste0(c("Level: ",game_level_map$get(game_info$level_key)$name,"/",game_level_map$size()),sep="",collapse=""),
+                            paste0(c("Lives: ", rep("🧡",game_info$lives)),collapse="")
                           )
                           ,collapse="\n",sep=""))
   
@@ -203,143 +202,146 @@ But it has only been recently when villagers have started to claim that somethin
       zombie_moves(zombie_moves() +  1)
       player_moves_since_last_zombie_move(0)
     }
-    
-   #monster_collision <- check_collision_monster_player(player_position = player_position(),
-  #                                                      ghost_positions = ghost_positions(),
-  #                                                      zombie_positions = zombie_positions())
-    
-    
-    #check_collision_monster_player <- function(player_position, ghost_positions, zombie_positions) {
-      monster_collision <- NONE
-      if (is_player_next_to_any_ghost(player_position(), ghost_positions())) {
-        monster_collision <- GHOST
-        game_info$scene <- "ghost"
-        console$data <- "Boo boooo! Shuffled away!"
-      }
-      else if (is_player_caught_by_any_zombie(player_position(), zombie_positions())) {
-        monster_collision <- ZOMBIE
-        game_info$scene <- "zombie"
+    monster_collision <- NONE
+    if (is_player_next_to_any_ghost(player_position(), ghost_positions())) {
+      monster_collision <- GHOST
+      game_info$scene <- "ghost"
+      console$data <- "Boo boooo! Shuffled away!"
+    }
+    else if (is_player_caught_by_any_zombie(player_position(), zombie_positions())) {
+      monster_collision <- ZOMBIE
+      game_info$scene <- "zombie"
         console$data <- "Tasty brains! Shuffled away!"
-      }
-    #  return(collision)
-  #  }
-
+    }
     if ( monster_collision != NONE) {
       after_shuffle <- shuffle(maze=maze(), num_ghosts= num_ghosts(), num_zombies = num_zombies(), radius_to_exit = radius_to_exit())
       player_position(after_shuffle$player_position)
       player_direction(after_shuffle$player_direction)
       ghost_positions(after_shuffle$ghost_positions)
       zombie_positions(after_shuffle$zombie_positions)
-
       if(monster_collision == ZOMBIE) {
         game_info$lives <- game_info$lives - 1
       }
-      
       if (game_info$lives == 0) {
        game_info$scene ="end"
       }
     }
   })
-
-   players_view <- reactive({
-                              scene_to_play <- isolate(game_info$scene)
-                              if (scene_to_play != "") {
-                                scene <- scene_map$get(scene_to_play)
-                                sound <- scene$sound
-                                beep(sound$beep)
-                                duration = sound$duration
-                                if(scene$invalidate) {
-                                  if(duration != 0 ) {
-                                    invalidateLater(duration* 1000)
-                                  }
-                                  isolate(game_info$scene <-"")
-                                }
-                               pre(HTML(scene$ascii),style="background-color:white;color:black;")
-                              }
-                              else {
-                                div(HTML(build_players_view(maze = maze(),
-                                         player_position = player_position(),
-                                         ghost_positions = ghost_positions(),
-                                         zombie_positions = zombie_positions(),
-                                         player_direction = player_direction(),
-                                         forward_vision =  forward_vision(),
-                                         rear_vision = rear_vision())),style="font-size:55px; margin-top:0.5em")
-                              }
-                              
-     })
   
+
+  #
+  disable_buttons <- function(){
+    shinyjs::disable("left")
+    shinyjs::disable("right")
+    shinyjs::disable("forward")
+  }
    
-  # Observe user input keys
-  observeEvent(input$keys, {
-    
-     if (input$keys == "left") {
-       console$data <- "Turning left"
-       player_direction(turn(player_direction(),"LEFT"))
-       player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
-       player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
-       player_moves(player_moves() + 1)
-       move_monsters()
-     }
-    else if (input$keys == "right"){
-      console$data <- "Turning right"
-      player_direction(turn(player_direction(),"RIGHT"))
+  #
+  enable_buttons <- function() {
+    shinyjs::enable("left")
+    shinyjs::enable("right")
+    shinyjs::enable("forward")
+  }
+
+  #
+  players_view <- reactive({
+    scene_to_play <- isolate(game_info$scene)
+    if (scene_to_play != "") {
+      scene <- scene_map$get(scene_to_play)
+      sound <- scene$sound
+      wav_file = sound$wav
+      isolate(game_info$scene <-"")
+      shinyjs::runjs(paste0("var music = new Howl({src: ['",wav_file,"']}); music.play(); music.resume();"))
+      duration = sound$duration
+      if(scene$invalidate) {
+        if(duration != 0 ) {
+          invalidateLater(duration * 1000)
+        }
+      }
+      pre(HTML(scene$ascii),style=paste0("font-size:", scene$size, "px;background-color:white;color:black;", sep=""))
+    }
+    else {
+      enable_buttons()
+      div(HTML(build_players_view(maze = maze(),
+        player_position = player_position(),
+        ghost_positions = ghost_positions(),
+        zombie_positions = zombie_positions(),
+        player_direction = player_direction(),
+        forward_vision =  forward_vision(),
+        rear_vision = rear_vision())),style="font-size:30px; margin-top:0.5em")
+   }
+  })
+
+  #
+  observeEvent(input$left, {
+    console$data <- "Turning left"
+    disable_buttons()
+    player_direction(turn(player_direction(),"LEFT"))
+    player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
+    player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
+    player_moves(player_moves() + 1)
+    move_monsters()
+  })
+
+  #
+  observeEvent(input$right, {
+    console$data <- "Turning right"
+    disable_buttons()
+    player_direction(turn(player_direction(),"RIGHT"))
+    player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
+    player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
+    player_moves(player_moves() + 1)
+    move_monsters()    
+  })
+
+  #
+  observeEvent(input$forward, {
+    console$data <- "Walking forward"
+    disable_buttons()
+    next_position <- get_position_forward(player_position(), player_direction())
+    # Wall player collision detection
+    if(can_move_to(maze(),next_position)) {
+      player_position(next_position)
       player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
       player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
       player_moves(player_moves() + 1)
-      move_monsters()
-    }
-    else if (input$keys == "up") {
-      console$data <- "Walking forward"
-      
-      next_position <- get_position_forward(player_position(), player_direction())
-      # Wall player collision detection
-      if(can_move_to(maze(),next_position)) {
-        player_position(next_position)
-        player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
-        player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
-        player_moves(player_moves() + 1)
-        if(is_exit(maze(),player_position())) {
-          
-          console$data <- sprintf("You have escaped in %d moves\n", ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move())
-          
-          game_info$level_id <- game_info$level_id + 1
-          if(game_info$level_id <= game_level_map$size()) {
-            next_level<-game_level_map$keys()[[game_info$level_id]]
-            game_info$level_key <- next_level
-            game_info$scene = "new_level"
-            initial = shuffle(maze=maze(), 
-                              num_ghosts=num_ghosts(), 
-                              num_zombies = num_zombies(), 
-                              radius_to_exit = radius_to_exit())
-            player_direction(initial$player_direction)
-            player_position(initial$player_position)
-            ghost_positions(initial$ghost_positions)
-            zombie_positions(initial$zombie_positions)
-            ghost_moves(0)
-            player_moves_since_last_ghost_move(0)
-            zombie_moves(0)
-            player_moves_since_last_zombie_move(0)
-            player_moves(0)
-          }
-          else {
-            game_info$scene = "you_won"
-          }
-          
+      if(is_exit(maze(),player_position())) {
+        console$data <- sprintf("You have escaped in %d moves\n", ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move())
+        game_info$level_id <- game_info$level_id + 1
+        if(game_info$level_id <= game_level_map$size()) {
+          next_level<-game_level_map$keys()[[game_info$level_id]]
+          game_info$level_key <- next_level
+          game_info$scene = "new_level"
+          initial = shuffle(maze=maze(), 
+                            num_ghosts=num_ghosts(), 
+                            num_zombies = num_zombies(), 
+                            radius_to_exit = radius_to_exit())
+          player_direction(initial$player_direction)
+          player_position(initial$player_position)
+          ghost_positions(initial$ghost_positions)
+          zombie_positions(initial$zombie_positions)
+          ghost_moves(0)
+          player_moves_since_last_ghost_move(0)
+          zombie_moves(0)
+          player_moves_since_last_zombie_move(0)
+          player_moves(0)
         }
         else {
-          move_monsters()
+          game_info$scene = "you_won"
         }
       }
       else {
-        console$data <- "You are a muggle, you cannot walk through the walls!!\n"
-        
+        move_monsters()
       }
     }
+    else {
+      console$data <- "You are a muggle, you cannot walk through the walls!!\n"
+      enable_buttons()
       
-   })
+    }
+  })
 
   output$banner = renderText({banner()})
-  output$legend = renderText({legend()})
   output$keys = renderText({actions()})
   output$level = renderText({level()})
   output$players_view = renderUI({players_view()})
