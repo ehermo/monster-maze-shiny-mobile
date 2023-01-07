@@ -91,38 +91,6 @@ ui<- fluidPage(
 )
     
 #
-build_players_view <- function(maze,
-                         player_position,
-                         ghost_positions,
-                         zombie_positions, 
-                         player_direction, 
-                         forward_vision, 
-                         rear_vision) {
-  
-  maze_view <- what_player_can_see(maze = maze,
-                                   player_position = player_position, 
-                                   ghost_positions = ghost_positions, 
-                                   zombie_positions = zombie_positions,
-                                   direction = player_direction,
-                                   forward_vision = forward_vision,
-                                   rear_vision  = rear_vision)
-  view = get_graphics(maze_view,graph_map)
-  map_height <- nrow(view)
-  pane2_height <- map_height + 3
-  pane2 <- matrix("", nrow = pane2_height, ncol = 1 )
-  colnames(pane2) <- c("Map")
-  map_idx <- 1
-  pane2[map_idx,"Map"] <- '<table  style="border-spacing:0;border-collapse:collapse;line-height:1.1em;" border="0" borderspacing="0"'
-  map_idx <- map_idx + 1
-  for (line in apply(view, 1, paste, collapse = "")) {
-    pane2[map_idx,"Map"] <- paste0('<tr style="padding:0;margin:0px;">',line,'</tr>')
-    map_idx <- map_idx + 1
-  }
-  pane2[map_idx,"Map"] <- '</table'
-  return(paste(pane2,collapse=""))
-}
-
-
 server <- function(input, output) {
 
   #game_info
@@ -157,12 +125,16 @@ server <- function(input, output) {
   console <- reactiveValues(data=NULL)
   console$data <- "** CLICK ANYWHERE TO PLAY THE AUDIO **
   
-39 years have passed since the unsettling events 
-in that creepy sort of place known as 'Ghost Maze'.
-The yells and shouts haven’t ceased ever since. 
-But it has only been recently when villagers have 
-started to claim that something new has now 
-nested and dwells inside those walls.
+39 years have passed since 
+the unsettling events in that 
+creepy sort of place known as
+'Ghost Maze'.
+The yells and shouts haven’t 
+ceased ever since. But it has 
+only been recently when villagers
+have started to claim that
+something new has now nested 
+and dwells inside those walls.
 "
   #banner
   banner = reactiveVal(title())
@@ -175,6 +147,7 @@ nested and dwells inside those walls.
                         radius_to_exit = radius_to_exit())
 
       game_info$scene = "intro"
+      #play_wav()
       player_direction(initial$player_direction)
       player_position(initial$player_position)
       ghost_positions(initial$ghost_positions)
@@ -189,6 +162,7 @@ nested and dwells inside those walls.
                           ,collapse="\n",sep=""))
   
   move_monsters <- reactive({
+    isolate(console$data <- "")
     #ghosts move according to ghost speed
     if (player_moves_since_last_ghost_move() == ghost_speed()) {
       occupied_positions <- append(zombie_positions(), get_positions_nearby(maze = maze(),this_position = player_position(), radius = 1))
@@ -206,12 +180,12 @@ nested and dwells inside those walls.
     if (is_player_next_to_any_ghost(player_position(), ghost_positions())) {
       monster_collision <- GHOST
       game_info$scene <- "ghost"
-      console$data <- "Boo boooo! Shuffled away!"
+      isolate(console$data <- "Boo boooo! Shuffled away!")
     }
     else if (is_player_caught_by_any_zombie(player_position(), zombie_positions())) {
       monster_collision <- ZOMBIE
       game_info$scene <- "zombie"
-        console$data <- "Tasty brains! Shuffled away!"
+      isolate(console$data <- "Tasty brains! Shuffled away!")
     }
     if ( monster_collision != NONE) {
       after_shuffle <- shuffle(maze=maze(), num_ghosts= num_ghosts(), num_zombies = num_zombies(), radius_to_exit = radius_to_exit())
@@ -228,7 +202,6 @@ nested and dwells inside those walls.
     }
   })
   
-
   #
   disable_buttons <- function(){
     shinyjs::disable("left")
@@ -242,61 +215,65 @@ nested and dwells inside those walls.
     shinyjs::enable("right")
     shinyjs::enable("forward")
   }
-
+  
   #
   players_view <- reactive({
-    scene_to_play <- isolate(game_info$scene)
+    isolate(scene_to_play <- game_info$scene)
     if (scene_to_play != "") {
       scene <- scene_map$get(scene_to_play)
       sound <- scene$sound
       wav_file = sound$wav
-      isolate(game_info$scene <-"")
-      shinyjs::runjs(paste0("var music = new Howl({src: ['",wav_file,"']}); music.play(); music.resume();"))
-      duration = sound$duration
+      isolate(game_info$scene <- "")
+      shinyjs::runjs(paste0("var music = new Howl({src: ['",wav_file,"']}); music.play();"))
+      duration <- sound$duration
+      result <- div(pre(HTML(scene$ascii),style=scene$style),style="background-color:black;color:green;text-align=center;")
       if(scene$invalidate) {
         if(duration != 0 ) {
-          invalidateLater(duration * 1000)
+          invalidateLater(duration * 1000 + 500)
         }
       }
-      pre(HTML(scene$ascii),style=paste0("font-size:", scene$size, "px;background-color:white;color:black;", sep=""))
+      return(result)
     }
     else {
       enable_buttons()
-      div(HTML(build_players_view(maze = maze(),
+      return(div(HTML(build_players_view(maze = maze(),
         player_position = player_position(),
         ghost_positions = ghost_positions(),
         zombie_positions = zombie_positions(),
         player_direction = player_direction(),
         forward_vision =  forward_vision(),
-        rear_vision = rear_vision())),style="font-size:30px; margin-top:0.5em")
+        rear_vision = rear_vision())),style="font-size:30px; margin-top:0.5em; background-color:black;color:green;"))
    }
   })
 
   #
   observeEvent(input$left, {
-    console$data <- "Turning left"
     disable_buttons()
     player_direction(turn(player_direction(),"LEFT"))
     player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
     player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
     player_moves(player_moves() + 1)
     move_monsters()
+    if(isolate(console$data == "")) {
+      isolate(console$data <- "Turning left")
+    }
   })
 
   #
   observeEvent(input$right, {
-    console$data <- "Turning right"
     disable_buttons()
     player_direction(turn(player_direction(),"RIGHT"))
     player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
     player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
     player_moves(player_moves() + 1)
     move_monsters()    
+    if(isolate(console$data == "")) {
+      isolate(console$data <- "Turning right")
+    }
   })
 
   #
   observeEvent(input$forward, {
-    console$data <- "Walking forward"
     disable_buttons()
     next_position <- get_position_forward(player_position(), player_direction())
     # Wall player collision detection
@@ -306,7 +283,7 @@ nested and dwells inside those walls.
       player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
       player_moves(player_moves() + 1)
       if(is_exit(maze(),player_position())) {
-        console$data <- sprintf("You have escaped in %d moves\n", ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move())
+        move_counter <- ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move()
         game_info$level_id <- game_info$level_id + 1
         if(game_info$level_id <= game_level_map$size()) {
           next_level<-game_level_map$keys()[[game_info$level_id]]
@@ -329,15 +306,19 @@ nested and dwells inside those walls.
         else {
           game_info$scene = "you_won"
         }
+        isolate(console$data <- sprintf("You have escaped in %d moves\n", move_counter))
       }
       else {
         move_monsters()
+        if(isolate(console$data == "")) {
+          isolate(console$data <- "Walking forward")
+        }
+
       }
     }
     else {
-      console$data <- "You are a muggle, you cannot walk through the walls!!\n"
       enable_buttons()
-      
+      isolate(console$data <- "You are a muggle, you cannot walk through the walls!!\n")
     }
   })
 
