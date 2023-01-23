@@ -123,7 +123,23 @@ server <- function(input, output) {
   
   #console 
   console <- reactiveValues(data=NULL)
-  console$data <- "** CLICK ANYWHERE TO PLAY THE AUDIO **
+
+  #banner
+  banner = reactiveVal(title())
+
+  # set the initial values 
+  observeEvent(TRUE, ignoreNULL = FALSE, ignoreInit = FALSE, once = TRUE, {
+      initial = shuffle(maze=maze(), 
+                        num_ghosts=num_ghosts(), 
+                        num_zombies = num_zombies(), 
+                        radius_to_exit = radius_to_exit())
+
+      game_info$scene = "intro"
+      player_direction(initial$player_direction)
+      player_position(initial$player_position)
+      ghost_positions(initial$ghost_positions)
+      zombie_positions(initial$zombie_positions)
+      console$data <- "** CLICK ANYWHERE TO PLAY THE AUDIO **
   
 39 years have passed since 
 the unsettling events in that 
@@ -136,22 +152,6 @@ have started to claim that
 something new has now nested 
 and dwells inside those walls.
 "
-  #banner
-  banner = reactiveVal(title())
-
-  # set the initial values 
-  observeEvent(TRUE, ignoreNULL = FALSE, ignoreInit = FALSE, once = TRUE, {
-      initial = shuffle(maze=maze(), 
-                        num_ghosts=num_ghosts(), 
-                        num_zombies = num_zombies(), 
-                        radius_to_exit = radius_to_exit())
-
-      game_info$scene = "intro"
-      #play_wav()
-      player_direction(initial$player_direction)
-      player_position(initial$player_position)
-      ghost_positions(initial$ghost_positions)
-      zombie_positions(initial$zombie_positions)
   })
   
   #reactive expression to determine the level and lives based on level_key and lives
