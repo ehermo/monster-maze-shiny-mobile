@@ -26,6 +26,10 @@ EXIT <- 9
 GHOST <- 2
 ZOMBIE <- 3
 PLAYER <- 5
+WALLTOP <- 6
+WALLLEFT <- 7
+WALLDOWN <- 8
+WALLRIGHT <- 4
 DIRECTIONS <- c("N", "E", "S", "W")
 
 # Action map
@@ -71,12 +75,27 @@ sound_map$set("intro" ,list("beep" = 8,  "duration" = 6))
 #graph_sep=" " # each invisible char works on a different terminal
 # https://www.w3schools.com/charsets/ref_emoji.asp
 graph_map <- dict()
-graph_map$set(WALL,     list("block"="🏾","desc"="wall")) 
-graph_map$set(CORRIDOR, list("block"="🏻","desc"="corridor"))
-graph_map$set(GHOST,    list("block"="👻", "desc"="ghost" ))
-graph_map$set(EXIT,     list("block"="🏆","desc"="exit"))
-graph_map$set(PLAYER,   list("block"="\U1F464","desc"="player")) 
-graph_map$set(ZOMBIE,   list("block"="🧟","desc"="zombie"))
+#graph_map$set(WALL,     list("block"="🏾","desc"="wall")) 
+#graph_map$set(CORRIDOR, list("block"="🏻","desc"="corridor"))
+graph_map$set(NONE,     list("block"="<imgsrc=\"out.png\" height=32, width=32>","desc"="out","orientation"="none")) 
+graph_map$set(WALL,     list("block"="<img src=\"wall2.png\" height=32, width=32>","desc"="wall","orientation"="spatial")) 
+graph_map$set(CORRIDOR, list("block"="<img src=\"path2.png\" height=32, width=32>","desc"="corridor", "orientation"="none"))
+
+graph_map$set(WALLTOP,      list("block"="<img src=\"wallTop_ORIENTATION.png\" height=32, width=32>","desc"="wall","orientation"="spatial")) 
+graph_map$set(WALLRIGHT,    list("block"="<img src=\"wallRight_ORIENTATION.png\" height=32, width=32>","desc"="wall","orientation"="spatial")) 
+graph_map$set(WALLDOWN,     list("block"="<img src=\"wallDown_ORIENTATION.png\" height=32, width=32>","desc"="wall","orientation"="spatial")) 
+graph_map$set(WALLLEFT,     list("block"="<img src=\"wallLeft_ORIENTATION.png\" height=32, width=32>","desc"="wall","orientation"="spatial")) 
+
+# graph_map$set(GHOST,    list("block"="👻", "desc"="ghost" ))
+# graph_map$set(EXIT,     list("block"="🏆","desc"="exit"))
+# graph_map$set(PLAYER,   list("block"="\U1F464","desc"="player")) 
+# graph_map$set(ZOMBIE,   list("block"="🧟","desc"="zombie"))
+
+graph_map$set(GHOST,    list("block"="<img src=\"ghost.gif\" height=32, width=32>", "desc"="ghost","orientation"="none" ))
+graph_map$set(EXIT,     list("block"="<img src=\"exit.gif\" height=32, width=32>","desc"="exit", "orientation"="none"))
+graph_map$set(PLAYER,   list("block"="<img src=\"char.gif\" height=32, width=32>","desc"="player", "orientation"="none")) 
+graph_map$set(ZOMBIE,   list("block"="<img src=\"zombie_ORIENTATION.gif\" height=32, width=32>","desc"="zombie", "orientation"="focused-on-player"))
+
 
 convert_to_invctr_position <- function(position) {
   invctr_position <- data.frame(nv=1, row=position$row, col=position$col, row.names = NULL)
@@ -503,11 +522,95 @@ is_player_caught_by_any_zombie <- function(player_position, zombie_positions) {
   Reduce('|',lapply(zombie_positions,is_next_to,position_2 = player_position, max_distance = 0))
 }
 
+
 #
-get_graphics <- function(maze_view,graph_map) {
+get_player_position <- function(maze) {
+  exit_idx <- PLAYER %ai% maze 
+  new_position(exit_idx$row, exit_idx$col)
+}
+
+get_orientation_to_player <- function(position,player_position) {
+ 
+  if(position$col < player_position$col) {
+    return ("right")
+  }
+  else if (position$col > player_position$col) {
+    return ("left")
+  }
+  else {
+    if(position$row < player_position$row) {
+      return ("down")
+    }
+    else {
+      return("up")
+    }
+  }
+} 
+
+#
+get_graphics <- function(maze_view,graph_map,direction) {
+  player_position <- get_player_position(maze_view)
   nrow <- nrow(maze_view)
   ncol <- ncol(maze_view)
-  matrix(lapply(lapply(c(maze_view),graph_map$get),function(x) {return (paste0("<td style='padding-top:3px;margin-top:3px;'>",x$block,"</td>",sep=""))}), nrow,ncol)
+  # matrix(
+  #   lapply(
+  #     lapply(c(maze_view),graph_map$get),
+  #     function(x) {return (paste0("<td style='padding-top:0px;margin-top:0px;display:table-cell'>",x$block,"</td>",sep=""))}),
+  #   nrow,ncol)
+  
+  # graphics <- c()
+  # for(j in 1:ncol) {
+  #   for (i in 1:nrow) {
+  #     graph <- graph_map$get(maze_view[i,j])
+  #     if (graph$orientation == "none" ) {
+  #       graphics <- c(graphics, paste0("<td style='padding-top:0px;margin-top:0px;display:table-cell'>",graph$block,"</td>",sep="") )
+  #     }
+  #     else if( graph$orientation == "spatial"){
+  #       direction
+  #       graphics <- c(graphics, paste0("<td style='padding-top:0px;margin-top:0px;display:table-cell'>",str_replace(graph$block,"ORIENTATION", direction), "</td>",sep="") )
+  #     }
+  #     else if(graph$orientation == "focused-on-player") {
+  #       orientation <- get_orientation_to_player(new_position(row=i, col=j), player_position)
+  #       graphics <- c(graphics, paste0("<td style='padding-top:0px;margin-top:0px;display:table-cell'>",str_replace(graph$block,"ORIENTATION", orientation), "</td>",sep="") )
+  #     }
+  #   }
+  # }
+  # matrix(graphics, nrow, ncol)
+  
+  
+#  <div style="position:relative;
+  # height:224px;width:320px;line-height:0px;
+  # clip-path: inset(32px 64px 32px 64px round 10px);transition-duration: 0.8s;
+  # transition-property: transform;transform:rotate(90deg);transform-origin: 50% 50%;">
+  # <span style="position:absolute;top:0px;left:0px"><img src="maze1.gif"> </span>
+  # <span style="position:absolute;top:96px;left:96px;transition-duration: 0.8s;
+  # transition-property: transform;transform:rotate(-90deg)"><img src="ghost.gif" height="32," width="32"></span>
+  # <span style="position:absolute;top:32px;left:96px;transform:rotate(-90deg)">
+  # <img src="ghost.gif" height="32," width="32"></span>
+  # <span style="position:absolute;top:64px;left:96px;transform:rotate(-90deg)">
+  # <img src="char.gif" height="32," width="32"></span>
+  # </div>
+  
+  
+  graphics <- c("<span style='position:absolute;'><img  src='maze1.gif'/> </span>")
+  for(j in 1:ncol) {
+    for (i in 1:nrow) {
+      if(maze_view[i,j] %in% c(PLAYER,GHOST,ZOMBIE)) {
+        graph <- graph_map$get(maze_view[i,j])
+        if (graph$orientation == "none" ) {
+          graphics <- c(graphics, paste0("<span style='position:relative;top:64px;left:96px;'>",graph$block,"</span>",sep="") )
+        }
+        else if( graph$orientation == "spatial"){
+          graphics <- c(graphics, paste0("<span style='position:relative;top:32px;left:96px;'>",str_replace(graph$block,"ORIENTATION", direction),"</span>",sep="") )
+        }
+        else if(graph$orientation == "focused-on-player") {
+          orientation <- get_orientation_to_player(new_position(row=i, col=j), player_position)
+          graphics <- c(graphics, paste0("<span style='position:relative;top:64px;left:32px;'>",str_replace(graph$block,"ORIENTATION", orientation),"</span>",sep="") )
+        }
+      }
+    }
+  }
+  graphics
 }
 
 #
@@ -524,7 +627,7 @@ what_player_can_see <- function (maze,
   lateral_vision <- floor((forward_vision - 1)/2)
   padding <- forward_vision
   number_rot <- 0
-  meta_maze <- matrix(0,nrow(maze) + (2 * padding), ncol(maze) + (2 * padding))
+  meta_maze <- matrix(-1,nrow(maze) + (2 * padding), ncol(maze) + (2 * padding))
   meta_maze[(1 + padding):(nrow(maze) + padding ), (1 + padding):(ncol(maze) + padding)] <- maze
   for (ghost_position in ghost_positions) {
     meta_maze[ghost_position$row + padding,ghost_position$col + padding] <- GHOST
@@ -862,12 +965,12 @@ scene_map$set("you_won",list("name" ="you_won",
 #
 
 # Mazes
-maze0_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0)
-maze0_data <- c(maze0_data,0,0,0,0,9,0,0,0,0,0,0,0)
-maze0_data <- c(maze0_data,0,1,1,1,1,1,1,1,1,1,1,0)
-maze0_data <- c(maze0_data,0,1,1,1,0,1,1,0,1,1,1,0)
-maze0_data <- c(maze0_data,0,1,1,1,1,1,1,1,1,1,1,0)
-maze0_data <- c(maze0_data,0,0,0,0,0,0,0,0,0,0,0,0)
+maze0_data <-            c(6,6,6,6,6,6,6,6,6,6,6,6)
+maze0_data <- c(maze0_data,6,6,6,6,9,6,6,6,6,6,6,6)
+maze0_data <- c(maze0_data,4,1,1,1,1,1,1,1,1,1,1,7)
+maze0_data <- c(maze0_data,4,1,1,1,6,1,1,6,1,1,1,7)
+maze0_data <- c(maze0_data,4,1,1,1,1,1,1,1,1,1,1,7)
+maze0_data <- c(maze0_data,4,8,8,8,8,8,8,8,8,8,8,7)
 maze0 = matrix(maze0_data,nrow=6,ncol=12,byrow=TRUE);
 
 maze1_data <-            c(0,0,0,0,0,0,0,0,0,0)
@@ -946,7 +1049,7 @@ maze5 = matrix(maze5_data,nrow=16,ncol=15,byrow=TRUE);
 game_level_map <- dict()
 game_level_map$set("level1",list(
   "name"="1",
-  "maze"=maze1,
+  "maze"=maze0,
   "num_ghosts"= 2,
   "ghost_speed"=3,
   "num_zombies"=0,
@@ -1060,19 +1163,33 @@ build_players_view <- function(maze,
                                    direction = player_direction,
                                    forward_vision = forward_vision,
                                    rear_vision  = rear_vision)
-  view = get_graphics(maze_view,graph_map)
-  map_height <- nrow(view)
-  pane2_height <- map_height + 3
-  pane2 <- matrix("", nrow = pane2_height, ncol = 1 )
+  view = get_graphics(maze_view,graph_map, player_direction)
+  # map_height <- nrow(view)
+  # pane2_height <- map_height + 3
+  # pane2 <- matrix("", nrow = pane2_height, ncol = 1 )
+  # colnames(pane2) <- c("Map")
+  # map_idx <- 1
+  # pane2[map_idx,"Map"] <- '<table style="border-spacing:0;border-collapse:collapse;line-height:0em;background-color:white;color:black" border="0" borderspacing="0"'
+  # map_idx <- map_idx + 1
+  # for (line in apply(view, 1, paste, collapse = "")) {
+  #   pane2[map_idx,"Map"] <- paste0('<tr style="padding:0;margin:0px;">',line,'</tr>')
+  #   map_idx <- map_idx + 1
+  # }
+  # pane2[map_idx,"Map"] <- '</table'
+  # return(paste(pane2,collapse=""))
+
+  
+  print(paste0("length:",length(view)))
+  pane2 <- matrix("", nrow = length(view)+2, ncol = 1 )
   colnames(pane2) <- c("Map")
   map_idx <- 1
-  pane2[map_idx,"Map"] <- '<table style="border-spacing:0;border-collapse:collapse;line-height:1.1em;background-color:white;color:black" border="0" borderspacing="0"'
+  pane2[map_idx,"Map"] <- '<div style="position:relative;height:224px;line-height:0px">'
   map_idx <- map_idx + 1
-  for (line in apply(view, 1, paste, collapse = "")) {
-    pane2[map_idx,"Map"] <- paste0('<tr style="padding:0;margin:0px;">',line,'</tr>')
+  for (img in view) {
+    pane2[map_idx,"Map"] <- img
     map_idx <- map_idx + 1
   }
-  pane2[map_idx,"Map"] <- '</table'
+  pane2[map_idx,"Map"] <- '</div>'
   return(paste(pane2,collapse=""))
 }
 
