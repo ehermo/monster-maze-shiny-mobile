@@ -224,7 +224,7 @@ and dwells inside those walls.
       sound <- scene$sound
       wav_file = sound$wav
       isolate(game_info$scene <- "")
-      shinyjs::runjs(paste0("var music = new Howl({src: ['",wav_file,"']}); music.play();"))
+      shinyjs::runjs(paste0("var music = new Howl({src: ['",wav_file,"'],html5:true}); music.play();"))
       duration <- sound$duration
       result <- div(pre(HTML(scene$ascii),style=scene$style),style="background-color:black;color:green;text-align=center;")
       if(scene$invalidate) {
