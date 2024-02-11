@@ -36,6 +36,10 @@ ghost_ani
 image_write(ghost_ani, "www/ghost.gif")
 
 
+
+
+
+
 image_write(ghost,"www/ghost.png")
 
 
@@ -51,6 +55,18 @@ char_ani <- image_animate(image_composite(path,c(char1,char2,char3)), fps=4, loo
 char_ani
 image_write(char_ani,"www/char.gif")
 
+
+
+tiles <- image_read("game/characters.png")
+char1 <- image_crop(tiles,"16x16+48+32")
+print(char1)
+char2 <- image_crop(tiles,"16x16+64+32")
+print(char2)
+char3 <- image_crop(tiles,"16x16+80+32")
+print(char3)
+char_ani <- image_animate(image_composite(path,c(char1,char2,char3)), fps=4, loop=0, dispose="background")
+char_ani
+image_write(char_ani,"www/char_right.gif")
 
 
 tiles <- image_read("game/characters.png")
@@ -153,7 +169,7 @@ print(z2)
 z3 <- image_scale(image_crop(tiles,"36x36+90"),"32x32")
 print(z3)
 
-zombie_ani <- image_animate(image_composite(path,c(z1,z2,z3)), fps=4, dispose="background")
+zombie_ani <- image_animate(c(z1,z2,z3), fps=4, dispose="background")
 zombie_ani
 image_write(zombie_ani, "www/zombie_down.gif")
 
@@ -166,7 +182,7 @@ print(z2)
 z3 <- image_scale(image_crop(tiles,"36x36+90+36"),"32x32")
 print(z3)
 
-zombie_ani <- image_animate(image_composite(path,c(z1,z2,z3)), fps=4, dispose="background")
+zombie_ani <- image_animate(c(z1,z2,z3), fps=4, dispose="background")
 zombie_ani
 image_write(zombie_ani, "www/zombie_right.gif")
 
@@ -179,7 +195,7 @@ print(z2)
 z3 <- image_scale(image_crop(tiles,"36x36+90+72"),"32x32")
 print(z3)
 
-zombie_ani <- image_animate(image_composite(path,c(z1,z2,z3)), fps=4, dispose="background")
+zombie_ani <- image_animate(c(z1,z2,z3), fps=4, dispose="background")
 zombie_ani
 image_write(zombie_ani, "www/zombie_up.gif")
 
@@ -192,7 +208,7 @@ print(z2)
 z3 <- image_scale(image_crop(tiles,"36x36+90+108"),"32x32")
 print(z3)
 
-zombie_ani <- image_animate(image_composite(path,c(z1,z2,z3)), fps=4, dispose="background")
+zombie_ani <- image_animate(c(z1,z2,z3), fps=4, dispose="background")
 zombie_ani
 image_write(zombie_ani, "www/zombie_left.gif")
 
@@ -203,9 +219,58 @@ char2 <- image_scale(image_crop(tiles,"16x16+64+48"),"32x32")
 print(char2)
 char3 <- image_scale(image_crop(tiles,"16x16+80+48"),"32x32")
 print(char3)
-char_ani <- image_animate(image_composite(path,c(char1,char2,char3)), fps=4, loop=0, dispose="background")
+char_ani <- image_animate(c(char1,char2,char3, char2), fps=4, loop=1, dispose="background")
+char_ani
+image_write(char_ani,"www/char_walking.gif")
+
+
+tiles <- image_read("game/characters.png")
+char1 <- image_scale(image_crop(tiles,"16x16+48+48"),"32x32")
+print(char1)
+char2 <- image_scale(image_crop(tiles,"16x16+64+48"),"32x32")
+print(char2)
+char3 <- image_scale(image_crop(tiles,"16x16+80+48"),"32x32")
+print(char3)
+char_ani <- image_animate(c(char1,char2,char3, char2), fps=4, loop=0, dispose="background")
 char_ani
 image_write(char_ani,"www/char.gif")
+
+tiles <- image_read("game/characters.png")
+char1 <- image_scale(image_crop(tiles,"16x16+48+32"),"32x32")
+print(char1)
+char2 <- image_scale(image_crop(tiles,"16x16+64+32"),"32x32")
+print(char2)
+char3 <- image_scale(image_crop(tiles,"16x16+80+32"),"32x32")
+print(char3)
+char_ani <- image_animate(c(char1,char2,char3), fps=4, loop=0, dispose="background")
+char_ani
+image_write(char_ani,"www/char_right.gif")
+
+
+tiles <- image_read("game/characters.png")
+char1 <- image_scale(image_crop(tiles,"16x16+64+48"),"32x32")
+print(char1)
+char2 <- image_scale(image_crop(tiles,"16x16+80+48"),"32x32")
+print(char2)
+char3 <- image_scale(image_crop(tiles,"16x16+80+32"),"32x32")
+print(char3)
+char4 <- image_scale(image_crop(tiles,"16x16+64+32"),"32x32")
+char_ani <- image_animate(c(char1,char2,char3,char4), fps=4, loop=1, dispose="background")
+char_ani
+image_write(char_ani,"www/turning_right.gif")
+
+tiles <- image_read("game/characters.png")
+char1 <- image_scale(image_crop(tiles,"16x16+48+16"),"32x32")
+print(char1)
+char2 <- image_scale(image_crop(tiles,"16x16+64+16"),"32x32")
+print(char2)
+char3 <- image_scale(image_crop(tiles,"16x16+80+16"),"32x32")
+print(char3)
+char_ani <- image_animate(c(char1,char2,char3), fps=4, loop=0, dispose="background")
+char_ani
+image_write(char_ani,"www/char_left.gif")
+
+
 
 tiles <- image_read("game/things.png")
 exit1 <- image_scale(image_crop(tiles,"16x16+0+80"),"32x32")
@@ -226,7 +291,7 @@ print(ghost_2)
 ghost_3 <- image_scale(image_crop(tiles,"16x16+128+64"),"32x32")
 print(ghost_3)
 
-ghost_ani <- image_animate(image_composite(path,c(ghost_1,ghost_2,ghost_3)), fps=4, dispose="background")
+ghost_ani <- image_animate(c(ghost_1,ghost_2,ghost_3), fps=4, dispose="background")
 ghost_ani
 image_write(ghost_ani, "www/ghost.gif")
 
@@ -276,6 +341,36 @@ j<-1
 32*6
 32*12
 
+
+
+path <- image_crop(tiles,"32x32+96+64")
+
+tiles <- image_read("game/coin.png")
+tiles
+coin1 <- image_scale(image_crop(tiles,"16x16+0+0"),"32x32")
+coin2 <- image_scale(image_crop(tiles,"16x16+16+0"),"32x32")
+coin3 <- image_scale(image_crop(tiles,"16x16+32+0"),"32x32")
+coin4 <- image_scale(image_crop(tiles,"16x16+48+0"),"32x32")
+coin5 <- image_scale(image_crop(tiles,"16x16+64+0"),"32x32")
+coin6 <- image_scale(image_crop(tiles,"16x16+80+0"),"32x32")
+coin7 <- image_scale(image_crop(tiles,"16x16+66+0"),"32x32")
+
+coin_ani <- image_animate(c(coin1,coin2,coin3,coin4,coin5,coin6, coin7), fps=10, dispose="background")
+coin_ani
+image_write(coin_ani,"www/coin_gold.gif")
+
+tiles <- image_read("game/dungeon.png")
+path <- image_crop(tiles,"32x32+96+64")
+print(path)
+tiles <- image_read("game/basictiles.png")
+
+col1 <- image_composite(path,image_scale(image_crop(tiles,"16x16+112+64"),"32x32"))
+print(col1)
+image_write(col1,"www/col.png")
+
+
+
+
 print(image_scale(image_read("www/wallTop_N.png"), "384x32!"))
 
 #map <- c()
@@ -311,6 +406,12 @@ for (i in 1: nrow(maze0)) {
 #print(image_append(image_join(map), stack=TRUE))
 print(image_composite(image_join(map), offset = "+32+0"))
 image_composite(image_row)
+
+
+
+
+
+
 
 image_row
 image_composite(image_row)
