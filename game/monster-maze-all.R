@@ -18,7 +18,7 @@ library(dplyr)
 library(stringr)
 library(purrr)
 
-source("ascii_art.R")
+source("game/ascii_art.R")
                  
 
 # Constants
