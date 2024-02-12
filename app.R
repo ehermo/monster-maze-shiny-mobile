@@ -1,4 +1,4 @@
-#
+	#
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 #
@@ -23,9 +23,9 @@ shinyjs.replay_turning_left = function(params) {
 
 shinyjs.replay_turning_right = function(params) {
   $('#player').attr('src', 'char_walking.gif');
-  
 }
 "
+
 
 # Define UI for application 
 ui<- fluidPage(
@@ -33,12 +33,20 @@ ui<- fluidPage(
   extendShinyjs(text = jsCode,functions = c("replay_walking","replay_turning_right","replay_turning_left")),
   includeCSS('www/CSS.css'),
   howler(
-    elementId = "sound", 
+    elementId = "background", 
     tracks = list("Track 1" = "sample_audio/smb_stage_clear.wav"),
     auto_continue = FALSE,
-    auto_loop = FALSE,
-    seek_ping_rate = 1000
+    auto_loop = TRUE
   ),
+  tags$head(tags$script(HTML(paste0(
+                            "var background = new Howl({src: ['", background_audio, "'],html5:false,loop:true,volume:0.1,preload:true});",
+                            "var coin = new Howl({src: ['", coin_audio, "'],html5:true,volume:0.3});",
+                            "var zombie = new Howl({src: ['", zombie_audio, "'],html5:true,volume:0.3});",
+                            "var ghost = new Howl({src: ['", ghost_audio, "'],html5:true,volume:0.3});",
+                            "var new_level = new Howl({src: ['", new_level_audio, "'],html5:true,volume:0.3});",
+                            "var end= new Howl({src: ['", new_level_audio, "'],html5:true,volume:0.3});",
+                            "var you_won = new Howl({src: ['", new_level_audio, "'],html5:true,volume:0.3});"
+                          )))),
     fluidRow(
         column(12,
               # https://groups.google.com/g/shiny-discuss/c/8GmXV-UfTm4?pli=1
@@ -48,14 +56,16 @@ ui<- fluidPage(
     fluidRow(
       column(12,
             # "Level & Lives",
-             verbatimTextOutput("level"),
+            hidden(
+             verbatimTextOutput("level")),
              tags$head(tags$style(HTML("
               #level {
                 font-size: 15px;
                 background-color: black;
                 color:green;
                }"))),
-              style ="font-size:20px;")),
+              style ="font-size:20px;"
+            )),
 
       fluidRow(
         column (12,
@@ -65,12 +75,13 @@ ui<- fluidPage(
           tags$head(tags$style(HTML("
             #players_view {
               font-size: 15px;
-              background-color: white;
+              background-color: black;
               color:black;
             }"))),
           style ="font-size:20px;")),
       fluidRow(
         column(6,
+            hidden(
             tags$button(
               id = "forward",
               class = "btn action-button btn-info",
@@ -79,10 +90,11 @@ ui<- fluidPage(
               tags$img(src = "char.gif",
                        height = "40px"),
               style="padding-right:0px;padding-left:0px; border-radius: 10px; height:100px; width:100%;"
-            ),   
+            )),   
            class = "col-xs-6",
            style="padding-right:0;padding-left:0;"),
       column(3,
+             hidden(
           tags$button(
             id = "left",
             class = "btn action-button btn-success",
@@ -91,10 +103,11 @@ ui<- fluidPage(
             tags$img(src = "char_left.gif",
               height = "40px"),
             style="border-radius: 10px; height:100px; width:100%; "
-          ),
+          )),
       class = "col-xs-3",
       style="padding-right:0;padding-left:0;"),
       column(3,
+             hidden(
         tags$button(
           id = "right",
           class = "btn action-button btn-warning",
@@ -103,7 +116,7 @@ ui<- fluidPage(
           tags$img(src = "char_right.gif",
             height = "40px"),
             style="border-radius: 10px; height:100px; width:100%;"
-          ),
+          )),
           class = "col-xs-3",
         style="padding-right:0;padding-left:0;"),
       style ="padding-top:0.5em;margin-bottom:0.5em;"),
@@ -111,13 +124,25 @@ ui<- fluidPage(
         column(12,
         #"Console",
         verbatimTextOutput("console"),
+        align="center",
         tags$head(tags$style(HTML("
                             #console {
                               font-size: 15px;
+                              background-color: black;
+                              color:green;
+                              word-wrap:breaker-word;
+                              width:100%;
                             }"))),
         style ="font-size:20px;padding-top:0.5em;"
       )),
-  style="background-color: black;color:green;"
+     fluidRow(
+      column(12,
+           actionButton("start","Start game", class = "btn-success", style="padding: 10px 20px; border-radius: 10px;height:100px; width:100%;"), 
+           style="height:100px; width:100%;"
+      ),
+      style ="padding-top:0.5em;margin-bottom:0.5em;"
+     ),
+   style="background-color: black;color:green;"
 )
     
 #
@@ -129,12 +154,14 @@ server <- function(input, output) {
   })
   onclick("left", {
     js$replay_turning_left()
-    #js$delay_render(1000)
   })
   onclick("right", {
     js$replay_turning_right()
-    #js$delay_render(1000)
   })
+  
+  #Events
+  renderEvent = reactiveVal(NULL)
+  
   #game_info
   game_info <- reactiveValues(
     lives = 6,
@@ -169,7 +196,7 @@ server <- function(input, output) {
   
   #timer
   autoInvalidate <- reactiveTimer(1000)
-  startedTimer = reactiveVal(NULL)
+  timerRunning = reactiveVal(NULL)
   afterIntro = reactiveVal(NULL)
   
   #console 
@@ -180,32 +207,21 @@ server <- function(input, output) {
 
   # set the initial values 
   observeEvent(TRUE, ignoreNULL = FALSE, ignoreInit = FALSE, once = TRUE, {
-      initial = shuffle(maze=maze(), 
-                        num_ghosts=num_ghosts(), 
-                        num_zombies = num_zombies(),
-                        num_coins_gold = num_coins_gold(),
-                        radius_to_exit = radius_to_exit(),
-                        num_shuffles = num_shuffles())
-
-      isolate(num_shuffles(num_shuffles()+1))
       game_info$scene = "intro"
-      player_direction(initial$player_direction)
-      player_position(initial$player_position)
-      ghost_positions(initial$ghost_positions)
-      zombie_positions(initial$zombie_positions)
-      coin_gold_positions(initial$coin_gold_positions)
-      startedTimer(FALSE)
+      renderEvent(TRUE)
+      hide_action_buttons()
+      timerRunning(FALSE)
       afterIntro(FALSE)
       console$data <- "39 years have passed since 
 the unsettling events in that 
 creepy sort of place known as
 'Ghost Maze'.
-The yells and shouts haven’t 
-ceased ever since. But it has 
-only been recently when villagers
-have started to claim that
-something new has now nested 
-and dwells inside those walls.
+The yells and eerie wails haven’t 
+ceased ever since. 
+Now villagers claim that
+something else dwells 
+inside those unholy walls.
+And you are about to step in.
 "
   })
   
@@ -217,7 +233,6 @@ and dwells inside those walls.
                           ,collapse="\n",sep=""))
   
   move_monsters <- reactive({
-    #isolate(console$data <- "")
     #ghosts move according to ghost speed
     if (player_moves_since_last_ghost_move() == ghost_speed()) {
       occupied_positions <- append(zombie_positions(), get_positions_nearby(maze = maze(),this_position = player_position(), radius = 1))
@@ -261,34 +276,49 @@ and dwells inside those walls.
       if (game_info$lives == 0) {
        game_info$scene ="end"
        isolate(autoInvalidate <- NULL)
-       isolate(startedTimer(FALSE))
+       isolate(timerRunning(FALSE))
       }
     }
   })
   
   #
-  show_buttons <- function() {
+  show_start_button <- function() {
+    shinyjs::show("start")
+  }
+  
+  #
+  hide_start_button <- function() {
+    shinyjs::hide("start")
+  } 
+  
+  #
+  show_level_bar <- function() {
+    shinyjs::show("level")
+  }
+  
+  #
+  show_action_buttons <- function() {
     shinyjs::show("left")
     shinyjs::show("right")
     shinyjs::show("forward")
   }
   
   #
-  hide_buttons <- function() {
+  hide_action_buttons <- function() {
     shinyjs::hide("left")
     shinyjs::hide("right")
     shinyjs::hide("forward")
   } 
   
   #
-  disable_buttons <- function(){
+  disable_action_buttons <- function(){
     shinyjs::disable("left")
     shinyjs::disable("right")
     shinyjs::disable("forward")
   }
    
   #
-  enable_buttons <- function() {
+  enable_action_buttons <- function() {
     shinyjs::enable("left")
     shinyjs::enable("right")
     shinyjs::enable("forward")
@@ -298,7 +328,7 @@ and dwells inside those walls.
     # Invalidate and re-execute this reactive expression every time the
     # timer fires.
     autoInvalidate()
-    if (startedTimer()) {
+    if (timerRunning()) {
       isolate(player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1))
       isolate(player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1))
       isolate(move_monsters())
@@ -307,34 +337,35 @@ and dwells inside those walls.
   
   #
   players_view <- reactive({
+    renderEvent()
     isolate(scene_to_play <- game_info$scene)
     if (scene_to_play != "") {
       scene <- scene_map$get(scene_to_play)
       sound <- scene$sound
-      wav_file = sound$wav
-      isolate(game_info$scene <- "")
-      if(wav_file != "") {
-        shinyjs::runjs(paste0("var music = new Howl({src: ['",wav_file,"'],html5:true}); music.play();"))
+      audio_file = sound$audio
+      if(audio_file != "") {
+        shinyjs::runjs(paste0(scene$name,".play();"))
       }
       duration <- sound$duration
       result <- div(pre(HTML(scene$ascii),style=scene$style),style="background-color:black;color:green;text-align=center;")
       if(scene$invalidate) {
+        isolate(game_info$scene <- "")
         if(duration != 0 ) {
+          isolate(timerRunning(FALSE))
           invalidateLater(duration * 1000 + 500)
-          if(scene_to_play == "intro") {
-            isolate(afterIntro(TRUE))
-            hide_buttons()
-          }
+        }
+      }
+      else {
+        if(scene_to_play == "intro") {
+          isolate(afterIntro(TRUE))
         }
       }
       return(result)
     }
     else {
-      show_buttons()
-      enable_buttons()
-      if(isolate(!startedTimer()) & afterIntro()){
-        isolate(startedTimer(TRUE))
-      }
+      isolate(timerRunning(TRUE))
+      show_action_buttons()
+      enable_action_buttons()
       return(div(HTML(build_players_view(maze = maze(),
         player_position = player_position(),
         ghost_positions = ghost_positions(),
@@ -350,7 +381,7 @@ and dwells inside those walls.
   #
   observeEvent(input$left, {
     isolate(console$data <- "")
-    disable_buttons()
+    disable_action_buttons()
     player_direction(turn(player_direction(),"LEFT"))
     #player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
     #player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
@@ -364,7 +395,7 @@ and dwells inside those walls.
   #
   observeEvent(input$right, {
     isolate(console$data <- "")
-    disable_buttons()
+    disable_action_buttons()
     player_direction(turn(player_direction(),"RIGHT"))
     #player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
     #player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
@@ -375,12 +406,38 @@ and dwells inside those walls.
     }
   })
 
-  
+  #
+  observeEvent(input$start, ignoreNULL = FALSE, ignoreInit = TRUE, once = TRUE,{
+    hide_start_button()
+    show_action_buttons()
+    enable_action_buttons()
+    isolate(console$data <- "Start playing")
+    initial = shuffle(maze=maze(), 
+                      num_ghosts=num_ghosts(), 
+                      num_zombies = num_zombies(),
+                      num_coins_gold = num_coins_gold(),
+                      radius_to_exit = radius_to_exit(),
+                      num_shuffles = num_shuffles())
+    
+    isolate(num_shuffles(num_shuffles()+1))
+    player_direction(initial$player_direction)
+    player_position(initial$player_position)
+    ghost_positions(initial$ghost_positions)
+    zombie_positions(initial$zombie_positions)
+    coin_gold_positions(initial$coin_gold_positions)
+    if(isolate(!timerRunning()) & afterIntro()){
+      timerRunning(TRUE)
+    }
+    isolate(game_info$scene <- "")
+    shinyjs::runjs(paste0("background.play();"))
+    show_level_bar()
+    renderEvent(!renderEvent())
+})
 
   #
   observeEvent(input$forward, {
     isolate(console$data <- "")
-    disable_buttons()
+    disable_action_buttons()
     next_position <- get_position_forward(player_position(), player_direction())
     # Wall player collision detection
     if(can_move_to(maze(),next_position)) {
@@ -391,7 +448,7 @@ and dwells inside those walls.
       if(has_coin(coin_gold_positions(), player_position())) {
         game_info$coins <-  game_info$coins + 1
         coin_gold_positions(remove_position_from_list(player_position(),coin_gold_positions()))
-        shinyjs::runjs(paste0("var music = new Howl({src: ['",coin_sound,"'],html5:true}); music.play();"))
+        shinyjs::runjs(paste0("coin.play()"))
       }
       else if(is_exit(maze(),player_position())) {
         move_counter <- ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move()
@@ -422,7 +479,7 @@ and dwells inside those walls.
         else {
           game_info$scene = "you_won"
           isolate(autoInvalidate <- NULL)
-          isolate(startedTimer(FALSE))
+          isolate(timerRunning(FALSE))
         }
         isolate(console$data <- sprintf("You have escaped in %d moves\n", move_counter))
       }
@@ -435,7 +492,7 @@ and dwells inside those walls.
       }
     }
     else {
-      enable_buttons()
+      enable_action_buttons()
       isolate(console$data <- "You are a muggle, you cannot walk through the walls!!\n")
     }
   })
