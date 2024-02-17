@@ -6,7 +6,7 @@
 #
 #    http://shiny.rstudio.com/
 #
-source("game/monster-maze-all.R")
+source("R/monster-maze-all.R")
 #install.packages(c("howler","shinyjs"))
 library(shiny)
 library("howler")
@@ -39,8 +39,9 @@ ui<- fluidPage(
     auto_loop = TRUE
   ),
   tags$head(tags$script(HTML(paste0(
-                            "var background = new Howl({src: ['", background_audio, "'],html5:false,loop:true,volume:0.1,preload:true});",
+                            "var background = new Howl({src: ['", background_audio, "'],html5:true,loop:true,volume:0.1,preload:true});",
                             "var coin = new Howl({src: ['", coin_audio, "'],html5:true,volume:0.3});",
+                            "var win = new Howl({src: ['", win_audio, "'],html5:true,volume:0.3});",
                             "var zombie = new Howl({src: ['", zombie_audio, "'],html5:true,volume:0.3});",
                             "var ghost = new Howl({src: ['", ghost_audio, "'],html5:true,volume:0.3});",
                             "var new_level = new Howl({src: ['", new_level_audio, "'],html5:true,volume:0.3});",
@@ -176,6 +177,8 @@ server <- function(input, output) {
   rear_vision = reactive(game_level_map$get(game_info$level_key)$rear_vision)
   num_ghosts =  reactive(game_level_map$get(game_info$level_key)$num_ghosts)
   num_zombies =  reactive(game_level_map$get(game_info$level_key)$num_zombies)
+  num_zombies2 =  reactive(game_level_map$get(game_info$level_key)$num_zombies2)
+  num_hostages =  reactive(game_level_map$get(game_info$level_key)$num_hostages)
   num_coins_gold =  reactive(game_level_map$get(game_info$level_key)$num_coins_gold)
   ghost_speed =  reactive(game_level_map$get(game_info$level_key)$ghost_speed)
   zombie_speed =  reactive(game_level_map$get(game_info$level_key)$zombie_speed)
@@ -185,14 +188,19 @@ server <- function(input, output) {
   player_position = reactiveVal(NULL)
   ghost_positions = reactiveVal(NULL)
   zombie_positions = reactiveVal(NULL)
+  zombie2_positions = reactiveVal(NULL)
+  hostage_positions = reactiveVal(NULL)
   coin_gold_positions = reactiveVal(NULL)
   #counters 
+  counter_hostages = reactiveVal(0)
+  rescued_hostages = reactiveVal(0)
   ghost_moves =reactiveVal(0)
   player_moves_since_last_ghost_move = reactiveVal(0)
   zombie_moves = reactiveVal(0)
   player_moves_since_last_zombie_move = reactiveVal(0)
   player_moves = reactiveVal(0)
   num_shuffles = reactiveVal(0)
+  level_timer = reactiveVal(0)
   
   #timer
   autoInvalidate <- reactiveTimer(1000)
@@ -205,82 +213,6 @@ server <- function(input, output) {
   #banner
   banner = reactiveVal(title())
 
-  # set the initial values 
-  observeEvent(TRUE, ignoreNULL = FALSE, ignoreInit = FALSE, once = TRUE, {
-      game_info$scene = "intro"
-      renderEvent(TRUE)
-      hide_action_buttons()
-      timerRunning(FALSE)
-      afterIntro(FALSE)
-      console$data <- "39 years have passed since 
-the unsettling events in that 
-creepy sort of place known as
-'Ghost Maze'.
-The yells and eerie wails haven’t 
-ceased ever since. 
-Now villagers claim that
-something else dwells 
-inside those unholy walls.
-And you are about to step in.
-"
-  })
-  
-  #reactive expression to determine the level and lives based on level_key and lives
-  level <- reactive(paste(c(
-                            paste0(c("Level: ",game_level_map$get(game_info$level_key)$name,"/",game_level_map$size()),sep="",collapse=""),
-                            paste0(c("Lives: ", rep("🧡",game_info$lives), " 🟡: ", game_info$coins),collapse="")
-                          )
-                          ,collapse="\n",sep=""))
-  
-  move_monsters <- reactive({
-    #ghosts move according to ghost speed
-    if (player_moves_since_last_ghost_move() == ghost_speed()) {
-      occupied_positions <- append(zombie_positions(), get_positions_nearby(maze = maze(),this_position = player_position(), radius = 1))
-      ghost_positions(get_random_free_positions(maze = maze(), num = num_ghosts(), occupied_positions = occupied_positions))
-      ghost_moves(ghost_moves() +  1)
-      player_moves_since_last_ghost_move(0)
-    }
-    #zombies move according to zombie speed
-    if (player_moves_since_last_zombie_move() == zombie_speed()) {
-      zombie_positions(move_zombies(maze=maze(),zombie_positions = zombie_positions(), ghost_positions = ghost_positions(), player_position = player_position()))
-      zombie_moves(zombie_moves() +  1)
-      player_moves_since_last_zombie_move(0)
-    }
-    monster_collision <- NONE
-    if (is_player_next_to_any_ghost(player_position(), ghost_positions())) {
-      monster_collision <- GHOST
-      game_info$scene <- "ghost"
-      isolate(console$data <- "Boo boooo! Shuffled away!")
-    }
-    else if (is_player_caught_by_any_zombie(player_position(), zombie_positions())) {
-      monster_collision <- ZOMBIE
-      game_info$scene <- "zombie"
-      isolate(console$data <- "Tasty brains! Shuffled away!")
-    }
-    if ( monster_collision != NONE) {
-      after_shuffle <- shuffle(maze=maze(), 
-                               num_ghosts= num_ghosts(), 
-                               num_zombies = num_zombies(),
-                               num_coins_gold = num_coins_gold(),
-                               radius_to_exit = radius_to_exit(),
-                               num_shuffles = num_shuffles())
-      isolate(num_shuffles(num_shuffles() + 1))
-      player_position(after_shuffle$player_position)
-      player_direction(after_shuffle$player_direction)
-      ghost_positions(after_shuffle$ghost_positions)
-      zombie_positions(after_shuffle$zombie_positions)
-      coin_gold_positions(after_shuffle$coin_gold_positions)
-      if(monster_collision == ZOMBIE) {
-        game_info$lives <- game_info$lives - 1
-      }
-      if (game_info$lives == 0) {
-       game_info$scene ="end"
-       isolate(autoInvalidate <- NULL)
-       isolate(timerRunning(FALSE))
-      }
-    }
-  })
-  
   #
   show_start_button <- function() {
     shinyjs::show("start")
@@ -290,6 +222,11 @@ And you are about to step in.
   hide_start_button <- function() {
     shinyjs::hide("start")
   } 
+  
+  #
+  hide_level_bar <- function() {
+    shinyjs::hide("level")
+  }
   
   #
   show_level_bar <- function() {
@@ -316,7 +253,7 @@ And you are about to step in.
     shinyjs::disable("right")
     shinyjs::disable("forward")
   }
-   
+  
   #
   enable_action_buttons <- function() {
     shinyjs::enable("left")
@@ -324,11 +261,130 @@ And you are about to step in.
     shinyjs::enable("forward")
   }
   
+  # set the initial values 
+  observeEvent(TRUE, ignoreNULL = FALSE, ignoreInit = FALSE, once = TRUE, {
+      game_info$scene = "intro"
+      renderEvent(TRUE)
+      hide_action_buttons()
+      timerRunning(FALSE)
+      afterIntro(FALSE)
+      console$data <- "39 years have passed since 
+the unsettling events in that 
+creepy sort of place known as
+'Monster Maze'.
+The yells and eerie wails haven’t 
+ceased ever since. 
+Now villagers claim that
+something else dwells 
+inside those unholy walls.
+And you are about to step in.
+"
+  })
+  
+  #reactive expression to determine the level and lives based on level_key and lives
+  level <- reactive(paste(c(
+                            paste0(c("Level: ",game_level_map$get(game_info$level_key)$name,"/",game_level_map$size(), "   👤 to rescue:", counter_hostages()),sep="",collapse=""),
+                            paste0(c("Lives: ", rep("🧡",game_info$lives), " 🟡: ", game_info$coins),collapse="")
+                          )
+                          ,collapse="\n",sep=""))
+  
+  move_monsters <- reactive({
+    
+    #hostages turn into zombies after a certain period of time
+    if(level_timer() > 40) {
+      if(sample(1:10, 1) > 9) {
+        if(length(hostage_positions()) != 0) {
+          str(hostage_positions())
+          new_zombie2_position <- hostage_positions()[[1]]
+          hostage_positions(remove_position_from_list(new_zombie2_position, hostage_positions()))
+          zombie2_positions(append(zombie2_positions(),list(new_zombie2_position)))
+          counter_hostages(counter_hostages() - 1)
+        }
+      }
+    }
+    
+    #ghosts move according to ghost speed
+    if (player_moves_since_last_ghost_move() == ghost_speed()) {
+      occupied_positions <- append(zombie_positions(),
+                                   get_positions_nearby(maze = maze(),
+                                                        this_position = player_position(),
+                                                        radius = 1))
+      ghost_positions(get_random_free_positions(
+        maze = maze(), num = num_ghosts(), 
+        occupied_positions = occupied_positions))
+      ghost_moves(ghost_moves() +  1)
+      player_moves_since_last_ghost_move(0)
+    }
+    #zombies move according to zombie speed
+    if (player_moves_since_last_zombie_move() == zombie_speed()) {
+      zombie_positions(move_zombies(
+        maze=maze(),
+        zombie_positions = zombie_positions(),
+        other_positions = append(ghost_positions(),zombie2_positions()), 
+        player_position = player_position()))
+      zombie2_positions(move_zombies(
+        maze=maze(),
+        zombie_positions = zombie2_positions(),
+        other_positions = append(ghost_positions(),zombie_positions()), 
+        player_position = player_position()))
+      zombie_moves(zombie_moves() +  1)
+      player_moves_since_last_zombie_move(0)
+    }
+    monster_collision <- NONE
+    if (is_player_next_to_any_ghost(player_position(), ghost_positions())) {
+      monster_collision <- GHOST
+      game_info$scene <- "ghost"
+      isolate(console$data <- "Boo boooo! Shuffled away!")
+    }
+    else if (is_player_caught_by_any_zombie(player_position(), append(zombie_positions(),zombie2_positions()))) {
+      monster_collision <- ZOMBIE
+      game_info$scene <- "zombie"
+      isolate(console$data <- "Tasty brains! Shuffled away!")
+    }
+    if ( monster_collision != NONE) {
+      
+      
+      after_shuffle <- shuffle(maze=maze(), 
+                               num_ghosts= num_ghosts(), 
+                               num_zombies = num_zombies(),
+                               num_zombies2 = num_zombies2() + num_hostages() - (counter_hostages() + rescued_hostages()),
+                               num_hostages = num_hostages(),
+                               num_coins_gold = num_coins_gold(),
+                               radius_to_exit = radius_to_exit(),
+                               num_shuffles = num_shuffles(),
+                               occupied_positions = hostage_positions())
+      #function
+      isolate(num_shuffles(num_shuffles() + 1))
+      player_position(after_shuffle$player_position)
+      player_direction(after_shuffle$player_direction)
+      ghost_positions(after_shuffle$ghost_positions)
+      zombie_positions(after_shuffle$zombie_positions)
+      zombie2_positions(after_shuffle$zombie2_positions)
+      #hostage_positions(after_shuffle$hostage_positions)
+      coin_gold_positions(after_shuffle$coin_gold_positions)
+      #end function
+      if(monster_collision == ZOMBIE) {
+        game_info$lives <- game_info$lives - 1
+      }
+      if (game_info$lives == 0) {
+       console$data <- ""
+       isolate(autoInvalidate <- NULL)
+       isolate(timerRunning(FALSE))
+       hide_level_bar()
+       hide_action_buttons()
+       shinyjs::runjs(paste0("background.stop()"))
+       game_info$scene ="end"
+      }
+    }
+  })
+  
+  
   observe({
     # Invalidate and re-execute this reactive expression every time the
     # timer fires.
     autoInvalidate()
     if (timerRunning()) {
+      isolate(level_timer(level_timer() + 1))
       isolate(player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1))
       isolate(player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1))
       isolate(move_monsters())
@@ -370,6 +426,8 @@ And you are about to step in.
         player_position = player_position(),
         ghost_positions = ghost_positions(),
         zombie_positions = zombie_positions(),
+        zombie2_positions = zombie2_positions(),
+        hostage_positions = hostage_positions(),
         player_direction = player_direction(),
         coin_gold_positions = coin_gold_positions(),
         forward_vision =  forward_vision(),
@@ -415,16 +473,24 @@ And you are about to step in.
     initial = shuffle(maze=maze(), 
                       num_ghosts=num_ghosts(), 
                       num_zombies = num_zombies(),
+                      num_zombies2 = num_zombies2(),
+                      num_hostages = num_hostages(),
                       num_coins_gold = num_coins_gold(),
                       radius_to_exit = radius_to_exit(),
                       num_shuffles = num_shuffles())
     
-    isolate(num_shuffles(num_shuffles()+1))
+    counter_hostages(num_hostages())
+    level_timer(0)
+    # function
+    isolate(num_shuffles(num_shuffles() + 1))
     player_direction(initial$player_direction)
     player_position(initial$player_position)
     ghost_positions(initial$ghost_positions)
     zombie_positions(initial$zombie_positions)
+    zombie2_positions(initial$zombie2_positions)
+    hostage_positions(initial$hostage_positions)
     coin_gold_positions(initial$coin_gold_positions)
+    # end function
     if(isolate(!timerRunning()) & afterIntro()){
       timerRunning(TRUE)
     }
@@ -442,13 +508,23 @@ And you are about to step in.
     # Wall player collision detection
     if(can_move_to(maze(),next_position)) {
       player_position(next_position)
+      #these are now timers
       #player_moves_since_last_ghost_move(player_moves_since_last_ghost_move() + 1)
       #player_moves_since_last_zombie_move(player_moves_since_last_zombie_move() + 1)
       player_moves(player_moves() + 1)
-      if(has_coin(coin_gold_positions(), player_position())) {
+      
+      if(has_found(coin_gold_positions(), player_position())) {
         game_info$coins <-  game_info$coins + 1
         coin_gold_positions(remove_position_from_list(player_position(),coin_gold_positions()))
         shinyjs::runjs(paste0("coin.play()"))
+        isolate(console$data <- "You've found something shiny!")
+      }
+      else if(has_found(hostage_positions(), player_position())) {
+        counter_hostages(counter_hostages() - 1)
+        rescued_hostages(rescued_hostages() + 1)
+        hostage_positions(remove_position_from_list(player_position(),hostage_positions()))
+        shinyjs::runjs(paste0("coin.play()"))
+        isolate(console$data <- "You've saved someone!")
       }
       else if(is_exit(maze(),player_position())) {
         move_counter <- ghost_moves() * ghost_speed() + player_moves_since_last_ghost_move()
@@ -461,15 +537,23 @@ And you are about to step in.
           initial = shuffle(maze=maze(), 
                             num_ghosts=num_ghosts(), 
                             num_zombies = num_zombies(),
+                            num_zombies2 = num_zombies2(),
+                            num_hostages = num_hostages(),
                             num_coins_gold = num_coins_gold(),
                             radius_to_exit = radius_to_exit(),
                             num_shuffles = num_shuffles())
+          counter_hostages(num_hostages())
+          level_timer(0)
+          # function
           isolate(num_shuffles(num_shuffles() + 1))
           player_direction(initial$player_direction)
           player_position(initial$player_position)
           ghost_positions(initial$ghost_positions)
           zombie_positions(initial$zombie_positions)
+          zombie2_positions(initial$zombie2_positions)
+          hostage_positions(initial$hostage_positions)
           coin_gold_positions(initial$coin_gold_positions)
+          # end function
           ghost_moves(0)
           player_moves_since_last_ghost_move(0)
           zombie_moves(0)
@@ -480,6 +564,11 @@ And you are about to step in.
           game_info$scene = "you_won"
           isolate(autoInvalidate <- NULL)
           isolate(timerRunning(FALSE))
+          console$data <- ""
+          hide_level_bar()
+          hide_action_buttons()
+          shinyjs::runjs(paste0("background.stop()"))
+          
         }
         isolate(console$data <- sprintf("You have escaped in %d moves\n", move_counter))
       }
@@ -493,7 +582,7 @@ And you are about to step in.
     }
     else {
       enable_action_buttons()
-      isolate(console$data <- "You are a muggle, you cannot walk through the walls!!\n")
+      isolate(console$data <- "You are a muggle, can't  walk through the walls!!\n")
     }
   })
 
@@ -505,3 +594,4 @@ And you are about to step in.
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
