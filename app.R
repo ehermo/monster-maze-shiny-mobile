@@ -1,4 +1,4 @@
-	#
+#
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 #
@@ -6,7 +6,7 @@
 #
 #    http://shiny.rstudio.com/
 #
-source("R/monster-maze-all.R")
+source("game/monster-maze-all.R")
 #install.packages(c("howler","shinyjs"))
 library(shiny)
 library("howler")
@@ -14,7 +14,7 @@ library(shinyjs)
 
 jsCode <- "
 shinyjs.replay_walking = function(params) {
-  $('#player').attr('src', 'char_walking.gif');
+  $('#player').attr('src', 'char_walking.gif');no
 }
 
 shinyjs.replay_turning_left = function(params) {
@@ -40,7 +40,8 @@ ui<- fluidPage(
   ),
   tags$head(tags$script(HTML(paste0(
                             "var background = new Howl({src: ['", background_audio, "'],html5:true,loop:true,volume:0.1,preload:true});",
-                            "var coin = new Howl({src: ['", coin_audio, "'],html5:true,volume:0.3});",
+                            "var rescue = new Howl({src: ['", rescue_audio, "'],html5:true,volume:0.3});",
+                            "var coin = new Howl({src: ['", coin_audio, "'],html5:true,volume:0.1});",
                             "var win = new Howl({src: ['", win_audio, "'],html5:true,volume:0.3});",
                             "var zombie = new Howl({src: ['", zombie_audio, "'],html5:true,volume:0.3});",
                             "var ghost = new Howl({src: ['", ghost_audio, "'],html5:true,volume:0.3});",
@@ -183,6 +184,7 @@ server <- function(input, output) {
   ghost_speed =  reactive(game_level_map$get(game_info$level_key)$ghost_speed)
   zombie_speed =  reactive(game_level_map$get(game_info$level_key)$zombie_speed)
   radius_to_exit =  reactive(game_level_map$get(game_info$level_key)$radius_to_exit)
+  radius_to_player =  reactive(game_level_map$get(game_info$level_key)$radius_to_player)
   #turn_info 
   player_direction = reactiveVal(NULL)
   player_position = reactiveVal(NULL)
@@ -268,22 +270,19 @@ server <- function(input, output) {
       hide_action_buttons()
       timerRunning(FALSE)
       afterIntro(FALSE)
-      console$data <- "39 years have passed since 
-the unsettling events in that 
-creepy sort of place known as
-'Monster Maze'.
-The yells and eerie wails haven’t 
-ceased ever since. 
-Now villagers claim that
-something else dwells 
-inside those unholy walls.
-And you are about to step in.
+      console$data <- "Nobody believes me.
+There is no hope for them...
+...unless I do it myself.
+I couldn´t look myself 
+in the mirror.
+I have to go back 
+and save their souls.
 "
   })
   
   #reactive expression to determine the level and lives based on level_key and lives
   level <- reactive(paste(c(
-                            paste0(c("Level: ",game_level_map$get(game_info$level_key)$name,"/",game_level_map$size(), "   👤 to rescue:", counter_hostages()),sep="",collapse=""),
+                            paste0(c("Level: ",game_level_map$get(game_info$level_key)$name,"/",game_level_map$size(), "   👤Rescued: ", rescued_hostages(),"/", num_hostages()),sep="",collapse=""),
                             paste0(c("Lives: ", rep("🧡",game_info$lives), " 🟡: ", game_info$coins),collapse="")
                           )
                           ,collapse="\n",sep=""))
@@ -294,7 +293,6 @@ And you are about to step in.
     if(level_timer() > 40) {
       if(sample(1:10, 1) > 9) {
         if(length(hostage_positions()) != 0) {
-          str(hostage_positions())
           new_zombie2_position <- hostage_positions()[[1]]
           hostage_positions(remove_position_from_list(new_zombie2_position, hostage_positions()))
           zombie2_positions(append(zombie2_positions(),list(new_zombie2_position)))
@@ -351,6 +349,7 @@ And you are about to step in.
                                num_hostages = num_hostages(),
                                num_coins_gold = num_coins_gold(),
                                radius_to_exit = radius_to_exit(),
+                               radius_to_player = radius_to_player(),
                                num_shuffles = num_shuffles(),
                                occupied_positions = hostage_positions())
       #function
@@ -477,9 +476,11 @@ And you are about to step in.
                       num_hostages = num_hostages(),
                       num_coins_gold = num_coins_gold(),
                       radius_to_exit = radius_to_exit(),
+                      radius_to_player = radius_to_player(),
                       num_shuffles = num_shuffles())
     
     counter_hostages(num_hostages())
+    rescued_hostages(0)
     level_timer(0)
     # function
     isolate(num_shuffles(num_shuffles() + 1))
@@ -523,7 +524,7 @@ And you are about to step in.
         counter_hostages(counter_hostages() - 1)
         rescued_hostages(rescued_hostages() + 1)
         hostage_positions(remove_position_from_list(player_position(),hostage_positions()))
-        shinyjs::runjs(paste0("coin.play()"))
+        shinyjs::runjs(paste0("rescue.play()"))
         isolate(console$data <- "You've saved someone!")
       }
       else if(is_exit(maze(),player_position())) {
@@ -541,8 +542,10 @@ And you are about to step in.
                             num_hostages = num_hostages(),
                             num_coins_gold = num_coins_gold(),
                             radius_to_exit = radius_to_exit(),
+                            radius_to_player = radius_to_player(),
                             num_shuffles = num_shuffles())
           counter_hostages(num_hostages())
+          rescued_hostages(0)
           level_timer(0)
           # function
           isolate(num_shuffles(num_shuffles() + 1))
@@ -561,16 +564,16 @@ And you are about to step in.
           player_moves(0)
         }
         else {
+          console$data <- ""
           game_info$scene = "you_won"
           isolate(autoInvalidate <- NULL)
           isolate(timerRunning(FALSE))
-          console$data <- ""
           hide_level_bar()
           hide_action_buttons()
           shinyjs::runjs(paste0("background.stop()"))
           
         }
-        isolate(console$data <- sprintf("You have escaped in %d moves\n", move_counter))
+        isolate(console$data <- sprintf("You have escaped ... for now"))
       }
       else {
         move_monsters()
@@ -582,7 +585,7 @@ And you are about to step in.
     }
     else {
       enable_action_buttons()
-      isolate(console$data <- "You are a muggle, can't  walk through the walls!!\n")
+      isolate(console$data <- "You are a muggle,\ncan't  walk through the walls!!\n")
     }
   })
 

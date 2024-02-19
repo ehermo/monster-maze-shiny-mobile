@@ -17,50 +17,13 @@ library(beepr)
 library(dplyr)
 library(stringr)
 library(purrr)
+library(glue)
+library(logger)
 
 source("game/ascii_art.R")
-                 
-
-# Constants
-NONE <- -1
-WALL <- 0
-CORRIDOR <- 1
-EXIT <- 9
-GHOST <- 2
-ZOMBIE <- 3
-PLAYER <- 5
-COL <- 6
-COIN_GOLD <- 7
-DIRECTIONS <- c("N", "E", "S", "W")
-
-# Action map
-# * key (name):""
-# * value (action): list
-# * * desc:""
-# * * keys (keyboard):c()
-# * * echo:""
-action_map <- dict()
-action_map$set("turnl",
-               list(
-                 "desc" = "turn left ←L",
-                 "keys" = c("left arrow"),
-                 "echo" = "%s: turning left ←"))
-action_map$set("walk" ,
-               list(
-                 "desc" = "walk forward ↑F",
-                 "keys" = c("up arrow"),
-                 "echo" = "%s: moving forward ↑"))
-action_map$set("turnr",
-               list(
-                 "desc" = "turn right →R", 
-                 "keys" = c("right arrow"),
-                 "echo" = "%s: turning right →"))
+source("game/levels.R")
 
 # Graph map
-# https://invisible-characters.com/
-#graph_sep="\U17B5\U2063" # each invisible char works on a different terminal
-#graph_sep=" " # each invisible char works on a different terminal
-# https://www.w3schools.com/charsets/ref_emoji.asp
 graph_map <- dict()
 graph_map$set(NONE,     list(
   "block"="<div style='background-color:#442D17;height:32px;width:32px'/>",
@@ -98,7 +61,14 @@ graph_map$set(ZOMBIE,   list(
   "block"="<img src=\"zombie_ORIENTATION.gif\" height=32, width=32>",
   "desc"="zombie", 
   "orientation"="focused-on-player"))
-
+graph_map$set(ZOMBIE2,   list(
+  "block"="<img src=\"zombie2_ORIENTATION.gif\" height=32, width=32>",
+  "desc"="zombie2", 
+  "orientation"="focused-on-player"))
+graph_map$set(HOSTAGE,   list(
+  "block"="<img src=\"hostage.gif\" height=32, width=32>",
+  "desc"="hostage", 
+  "orientation"="none"))
 
 #
 credits <- function() {
@@ -145,8 +115,8 @@ is_exit <- function(maze,position) {
 }
 
 #
-has_coin <- function(coin_positions, position) {
-  return (coin_positions %>% has_element(position))
+has_found <- function(interesting_positions, position) {
+  return (interesting_positions %>% has_element(position))
 }
 
 #
@@ -177,7 +147,8 @@ calc_distance <- function(position_1, position_2) {
 # 
 is_next_to <- function(position_1, position_2, max_distance) {
   distance <- calc_distance(position_1 = position_1, position_2 = position_2)
-  if(distance > max_distance) {
+
+  if(isTRUE(distance > max_distance)) {
     return(FALSE)
   }
   TRUE
@@ -199,13 +170,13 @@ is_player_caught_by_any_zombie <- function(player_position, zombie_positions) {
   Reduce('|',lapply(zombie_positions,is_next_to,position_2 = player_position, max_distance = 0))
 }
 
-
 #
 get_player_position <- function(maze) {
   exit_idx <- PLAYER %ai% maze 
   new_position(exit_idx$row, exit_idx$col)
 }
 
+#
 get_orientation_to_player <- function(position,player_position) {
  
   if(position$col < player_position$col) {
@@ -235,7 +206,7 @@ get_graphics <- function(maze_view,graph_map,direction) {
       graph <- graph_map$get(maze_view[i,j])
       if (graph$orientation == "none" ) {
         
-        if(maze_view[i,j] %in% c(PLAYER, GHOST, ZOMBIE,COIN_GOLD)) {
+        if(maze_view[i,j] %in% c(PLAYER, GHOST, ZOMBIE, ZOMBIE2, HOSTAGE,COIN_GOLD)) {
           graphics <- c(graphics, paste0("<td style='padding-top:0px;margin-top:0px;display:table-cell'>",
                                        "<div style='position:relative;height:32px;width:32px;fline-height:0px>",
                                        "<span style='position:absolute;top:0px;left:0px'>",
@@ -258,7 +229,7 @@ get_graphics <- function(maze_view,graph_map,direction) {
       else if(graph$orientation == "focused-on-player") {
         orientation <- get_orientation_to_player(new_position(row=i, col=j), player_position)
         
-        if(maze_view[i,j] %in% c(PLAYER, GHOST, ZOMBIE)) {
+        if(maze_view[i,j] %in% c(PLAYER, GHOST, ZOMBIE, ZOMBIE2)) {
           graphics <- c(graphics, paste0("<td style='padding-top:0px;margin-top:0px;display:table-cell'>",
                                          "<div style='position:relative;height:32px;width:32px;line-height:0px>",
                                          "<span style='position:absolute;top:0px;left:0px'>",
@@ -277,7 +248,6 @@ get_graphics <- function(maze_view,graph_map,direction) {
     }
   }
   matrix(graphics, nrow, ncol)
-  
 }
 
 #
@@ -288,6 +258,8 @@ what_player_can_see <- function (maze,
                                  player_position,
                                  ghost_positions,
                                  zombie_positions,
+                                 zombie2_positions,
+                                 hostage_positions,
                                  coin_gold_positions, 
                                  direction, 
                                  forward_vision = 0, 
@@ -306,6 +278,12 @@ what_player_can_see <- function (maze,
   }
   for (zombie_position in zombie_positions) {
     meta_maze[zombie_position$row + padding,zombie_position$col + padding] <- ZOMBIE
+  }
+  for (zombie2_position in zombie2_positions) {
+    meta_maze[zombie2_position$row + padding,zombie2_position$col + padding] <- ZOMBIE2
+  }
+  for (hostage_position in hostage_positions) {
+    meta_maze[hostage_position$row + padding,hostage_position$col + padding] <- HOSTAGE
   }
   
 
@@ -354,34 +332,6 @@ what_player_can_see <- function (maze,
   maze_view
 }
 
-legend <- function() {
-  
-  action_height <- action_map$size()
-  legend_height <- graph_map$size()
-  pane1_height <- legend_height
-  pane1 <- matrix("", nrow = pane1_height, ncol = 1 )
-  colnames(pane1) <- c("Legend")
-  legend_idx <- 1
-  for(stripe in graph_map$values()) {
-    pane1[legend_idx,"Legend"] <- paste0( stripe$block," ", stripe$desc)
-    legend_idx <- legend_idx + 1
-  }
-  paste(pane1,collapse="\n")
-}
-
-# actions <- function() {
-#   action_height <- action_map$size()
-#   pane1_height <-  action_height
-#   pane1 <- matrix("", nrow = pane1_height, ncol = 1 )
-#   colnames(pane1) <- c("Actions")
-#   action_idx <- 1
-#   for(action_value in action_map$values()) {
-#     pane1[action_idx,"Actions"] <- paste0("", action_value$desc," ", paste(action_value$keys,collapse=" or "))
-#     action_idx <- action_idx + 1
-#   }
-#   paste(pane1,collapse="\n")
-# }
-
 
 #
 turn <- function(direction, towards) {
@@ -403,7 +353,6 @@ play <- function(sound_map, x) {
   sound <- sound_map$get(x)
   beep(sound$beep)
 }
-
 
 #
 get_closer_to_player <- function(maze, position_1, position_2, occupied_positions) {
@@ -434,9 +383,12 @@ remove_position_from_list <- function(position, list) {
 }
 
 #
-move_zombies <- function(maze, zombie_positions = list(), ghost_positions = list(), player_position) {
+move_zombies <- function(maze, 
+                         zombie_positions = list(),
+                         other_positions = list(),
+                         player_position) {
   new_zombie_positions <- list()
-  occupied_positions <- c(zombie_positions,ghost_positions)
+  occupied_positions <- append(zombie_positions,other_positions)
   for(zombie_position in zombie_positions) {
     occupied_positions <- remove_position_from_list(position = zombie_position, list = occupied_positions)
     new_zombie_position <- get_closer_to_player(maze = maze, position_1=zombie_position,position_2=player_position, occupied_positions = occupied_positions)
@@ -519,18 +471,30 @@ get_random_free_position <- function (maze, occupied_positions = list()) {
   for(occupied in occupied_positions) {
     available_positions <- available_positions[!((occupied$row == available_positions$row) & (occupied$col == available_positions$col)),]
   }
-  new_position <- available_positions[sample(1:nrow(available_positions),1),]
-  return(new_position(row = new_position$row, col= new_position$col))
+  if(nrow(available_positions) > 0) {
+    new_position_df <- available_positions[sample(1:nrow(available_positions),1),]
+    result <- new_position(row = new_position_df$row, col= new_position_df$col)
+  }
+  else {
+    log_warn("Null free position this should never happend.")
+    result <- new_position(row=NULL, col=NULL)
+  }
+  return(result)
 }
 
 #
-get_random_free_positions <- function(maze, num, occupied_positions) {
+get_random_free_positions <- function(maze, num, occupied_positions, distance=2) {
   positions <- list()
+  occupied <- occupied_positions
   if(num > 0) {
     for (counter in 1:num) {
-      new_position <- get_random_free_position(maze=maze, occupied_positions = occupied_positions)
+      new_position <- get_random_free_position(maze=maze, occupied_positions = occupied)
       positions <- append(positions, list(new_position))
-      occupied_positions <- append(occupied_positions, list(new_position))
+      occupied <- append(occupied, get_positions_nearby(
+        maze = maze,
+        this_position = new_position,
+        radius = distance)
+        )
     }
   }
   return (positions)
@@ -539,37 +503,68 @@ get_random_free_positions <- function(maze, num, occupied_positions) {
 #
 shuffle <- function(maze, num_ghosts = 1, 
                     num_zombies = 0,
+                    num_zombies2 = 0,
+                    num_hostages = 0,
                     num_coins_gold = 5, 
                     occupied_positions = list(), 
                     radius_to_exit = 4, 
                     radius_to_player=4,
                     num_shuffles = 0) {
+  
+  exit_position <- get_exit_position(maze = maze)
   player_position <- get_random_free_position(maze=maze, 
-                                         occupied_positions = get_positions_nearby(
+                                         occupied_positions = append(occupied_positions,get_positions_nearby(
                                            maze = maze,
-                                           this_position = get_exit_position(maze = maze),
-                                           radius = radius_to_exit))
-  if(num_shuffles <=2) {
+                                           this_position = exit_position,
+                                           radius = radius_to_exit)))
+  if(num_shuffles <1) {
     coin_gold_positions <- get_random_free_positions(maze=maze,
                                                     num=num_coins_gold,
                                                     occupied_positions = get_positions_nearby(
                                                       maze = maze,
                                                       this_position = player_position,
                                                       radius = radius_to_player-1))
+    hostage_positions <- get_random_free_positions(maze=maze,
+                                                     num=num_hostages,
+                                                     occupied_positions = append(append(coin_gold_positions,
+                                                                                 get_positions_nearby(
+                                                                                   maze = maze,
+                                                                                   this_position = player_position,
+                                                                                   radius = 3)),
+                                                                                 get_positions_nearby(
+                                                                                   maze = maze,
+                                                                                   this_position = exit_position,
+                                                                                   radius = 3
+                                                                                   
+                                                                                 ))
+                                                   ,distance=3)
   }
   else {
     coin_gold_positions <- list()
+    hostage_positions <- list()
   }
   occupied_positions <- append(occupied_positions, 
-                               get_positions_nearby(maze=maze,this_position=player_position, radius=radius_to_player))
-  ghost_positions <- get_random_free_positions(maze=maze,num=num_ghosts,occupied_positions=occupied_positions)
+                               get_positions_nearby(maze=maze,
+                                                    this_position=player_position,
+                                                    radius=radius_to_player))
+  ghost_positions <- get_random_free_positions(maze=maze,
+                                               num=num_ghosts,
+                                               occupied_positions=occupied_positions)
   occupied_positions <- append(occupied_positions,ghost_positions)
-  zombie_positions <- get_random_free_positions(maze=maze,num=num_zombies, occupied_positions=occupied_positions)
+  zombie_positions <- get_random_free_positions(maze=maze,
+                                                num=num_zombies, 
+                                                occupied_positions=occupied_positions)
+  occupied_positions <- append(occupied_positions,zombie_positions)
+  zombie2_positions <- get_random_free_positions(maze=maze,
+                                                num=num_zombies2, 
+                                                occupied_positions=occupied_positions)
   player_direction <- get_random_direction()
   return (list("player_position"=player_position, 
                "ghost_positions"=ghost_positions, 
                "player_direction"=player_direction, 
                "zombie_positions"=zombie_positions,
+               "zombie2_positions"=zombie2_positions,
+               "hostage_positions"=hostage_positions,
                "coin_gold_positions"=coin_gold_positions))
 }
 
@@ -588,7 +583,7 @@ check_collision_monster_player <- function(player_position, ghost_positions, zom
 }
 
 
-
+# audios
 audio_files_dir <- system.file("sounds", package = "beepr")
 addResourcePath("sample_audio", audio_files_dir)
 audio_files <- file.path("sample_audio", list.files(audio_files_dir, ".wav$"))
@@ -599,15 +594,16 @@ new_level_audio <- "sample_audio/victory_fanfare_mono.wav"
 ghost_audio <- "audio/evil_laugh.ogg.mp3"
 zombie_audio <- "audio/Zombie.mp3"
 coin_audio <- "audio/coin_0.ogg.mp3" 
+rescue_audio <- "audio/Accept.mp3" 
 background_audio <- "audio/In_Darkness_(CC-BY).mp3"
-
+win_audio <- "audio/win_sound.mp3"
 scene_map <- dict()
 scene_map$set("intro",list("name" ="intro",
                            "sound" = list("beep" = -1,  
                                           "audio" = "",
                                           "duration" = 3),
                            "ascii" = ghost_intro(),
-                           "style" = "display:inline-flex;justify-content:center;font-size:5px;background-color:white;color:black;font-family:'DroidSansMono'",
+                           "style" = "display:inline-flex;justify-content:center;font-size:5px;background-color:#D7D5D2;color:black;font-family:'DroidSansMono'",
                            "invalidate" = FALSE
 )
 )
@@ -616,7 +612,7 @@ scene_map$set("ghost",list("name" ="ghost",
                                           "audio" = ghost_audio,
                                           "duration" = 3),
                            "ascii" = ghost_encounter(),
-                           "style" = "display:inline-flex;justify-content:center;font-size:5px;background-color:white;color:black;font-family:'DroidSansMono'",
+                           "style" = "display:inline-flex;justify-content:center;font-size:5px;background-color:#D7D5D2;color:black;font-family:'DroidSansMono'",
                            "invalidate" = TRUE
 )
 )
@@ -625,16 +621,16 @@ scene_map$set("zombie",list("name" ="zombie",
                                            "audio" = zombie_audio,
                                            "duration" = 1),
                             "ascii" = zombie_encounter(),
-                            "style" = "display:inline-flex;justify-content:center;font-size:2px;background-color:white;color:black;font-family:'DroidSansMono'",
+                            "style" = "display:inline-flex;justify-content:center;font-size:2px;background-color:#D7D5D2;;color:black;font-family:'DroidSansMono'",
                             "invalidate" = TRUE
 )
 )
-scene_map$set("new_level",list("name" ="new_level",
+scene_map$set("new_level",list("name" ="win",
                                "sound" = list("beep" = -1, 
-                                              "audio" = new_level_audio,
-                                              "duration" = 3),
+                                              "audio" = win_audio,
+                                              "duration" = 1),
                                "ascii" = level_up(),
-                               "style" = "display:inline-flex;justify-content:center;font-size:3px;background-color:white;color:black;font-family:'DroidSansMono'",
+                               "style" = "display:inline-flex;justify-content:center;font-size:3px;background-color:#D7D5D2;;color:black;font-family:'DroidSansMono'",
                                "invalidate" = TRUE
 )
 )
@@ -657,222 +653,14 @@ scene_map$set("you_won",list("name" ="you_won",
 )
 )
 
-#
-
-# Mazes
-maze0_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0)
-maze0_data <- c(maze0_data,0,0,0,0,9,0,0,0,0,0,0,0)
-maze0_data <- c(maze0_data,0,1,1,1,1,1,1,1,1,1,1,0)
-maze0_data <- c(maze0_data,0,1,1,1,6,1,1,6,1,1,1,0)
-maze0_data <- c(maze0_data,0,1,1,1,1,1,1,1,1,1,1,0)
-maze0_data <- c(maze0_data,0,0,0,0,0,0,0,0,0,0,0,0)
-maze0 = matrix(maze0_data,nrow=6,ncol=12,byrow=TRUE);
-
-maze1_data <-            c(0,0,0,0,0,0,0,0,0,0)
-maze1_data <- c(maze1_data,0,1,1,1,1,1,0,1,1,0)
-maze1_data <- c(maze1_data,0,0,1,0,0,1,1,1,0,0)
-maze1_data <- c(maze1_data,0,0,1,1,0,1,6,1,1,0)
-maze1_data <- c(maze1_data,0,1,1,0,1,0,0,1,0,0)
-maze1_data <- c(maze1_data,0,1,1,1,1,1,1,1,0,0)
-maze1_data <- c(maze1_data,0,0,0,0,0,0,0,9,0,0)
-maze1 = matrix(maze1_data,nrow=7,ncol=10,byrow=TRUE);
-
-maze11_data <-             c(0,0,0,0,0,0,0,0,0,0)
-maze11_data <- c(maze11_data,0,1,1,1,1,1,0,1,1,0)
-maze11_data <- c(maze11_data,0,0,1,0,0,1,1,1,0,0)
-maze11_data <- c(maze11_data,0,0,1,1,6,1,6,1,1,0)
-maze11_data <- c(maze11_data,0,1,1,6,1,0,0,1,0,0)
-maze11_data <- c(maze11_data,0,1,1,1,1,1,1,1,1,0)
-maze11_data <- c(maze11_data,0,1,0,1,6,1,1,9,1,0)
-maze11_data <- c(maze11_data,0,1,1,1,1,1,0,1,1,0)
-maze11_data <- c(maze11_data,0,0,1,0,0,1,1,1,0,0)
-maze11_data <- c(maze11_data,0,0,1,1,1,1,0,1,1,0)
-maze11_data <- c(maze11_data,0,1,1,0,1,0,0,1,0,0)
-maze11_data <- c(maze11_data,0,0,0,0,0,0,0,0,0,0)
-maze11 = matrix(maze11_data,nrow=12,ncol=10,byrow=TRUE);
-
-maze2_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze2_data <- c(maze2_data,0,1,1,1,1,0,0,1,1,1,1,0,0)
-maze2_data <- c(maze2_data,0,6,1,6,0,1,1,1,0,0,1,0,0)
-maze2_data <- c(maze2_data,0,1,1,1,0,1,0,1,1,6,1,0,0)
-maze2_data <- c(maze2_data,0,0,0,1,0,1,0,1,1,1,1,1,0)
-maze2_data <- c(maze2_data,0,0,1,1,1,1,0,1,1,0,0,1,0)
-maze2_data <- c(maze2_data,0,1,1,0,9,0,0,1,0,0,0,1,0)
-maze2_data <- c(maze2_data,0,0,1,1,1,1,1,1,1,1,1,1,0)
-maze2_data <- c(maze2_data,0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze2 = matrix(maze2_data,nrow=9,ncol=13,byrow=TRUE);
-
-maze3_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze3_data <- c(maze3_data,0,1,1,1,0,1,1,0,1,1,0,1,1,0,0)
-maze3_data <- c(maze3_data,0,1,0,1,1,1,1,0,1,1,1,1,0,0,0)
-maze3_data <- c(maze3_data,0,1,1,1,1,1,1,0,1,1,1,1,0,0,0)
-maze3_data <- c(maze3_data,0,0,1,6,0,1,1,1,1,0,6,1,1,0,0)
-maze3_data <- c(maze3_data,0,1,1,1,1,1,1,0,1,1,1,1,0,0,0)
-maze3_data <- c(maze3_data,0,0,1,1,1,1,1,0,1,0,0,1,1,0,0)
-maze3_data <- c(maze3_data,0,1,1,1,0,1,1,0,1,1,0,1,0,0,0)
-maze3_data <- c(maze3_data,0,0,1,1,6,1,1,0,1,1,1,1,1,1,0)
-maze3_data <- c(maze3_data,0,0,1,1,0,1,1,9,1,1,6,0,0,1,0)
-maze3_data <- c(maze3_data,0,1,1,1,1,1,1,0,1,1,1,1,0,0,0)
-maze3_data <- c(maze3_data,0,1,1,1,1,1,1,6,1,1,0,1,0,0,0)
-maze3_data <- c(maze3_data,0,1,1,0,1,0,1,1,1,1,1,1,1,1,0)
-maze3_data <- c(maze3_data,0,0,1,1,1,1,1,0,1,0,0,0,1,0,0)
-maze3_data <- c(maze3_data,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze3 = matrix(maze3_data,nrow=15,ncol=15,byrow=TRUE);
-
-maze4_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze4_data <- c(maze4_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze4_data <- c(maze4_data,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,0,0,0,1,0,0,0,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,0,1,6,0,6,1,0,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,1,1,0,1,1,9,1,1,0,1,1,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,0,1,6,0,6,1,0,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,0,0,0,1,0,0,0,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,1,1,1,1,1,1,1,1,1,0,1,0)
-maze4_data <- c(maze4_data,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0)
-maze4_data <- c(maze4_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze4_data <- c(maze4_data,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze4 = matrix(maze4_data,nrow=15,ncol=15,byrow=TRUE);
-
-maze5_data <-            c(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze5_data <- c(maze5_data,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0)
-maze5_data <- c(maze5_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze5_data <- c(maze5_data,0,0,1,6,1,6,1,6,1,6,1,6,1,0,0)
-maze5_data <- c(maze5_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze5_data <- c(maze5_data,0,1,6,1,6,1,6,1,6,1,6,1,6,1,0)
-maze5_data <- c(maze5_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze5_data <- c(maze5_data,0,0,1,6,1,6,1,6,1,6,1,6,1,0,0)
-maze5_data <- c(maze5_data,0,1,1,1,1,1,1,9,1,1,1,1,1,1,0)
-maze5_data <- c(maze5_data,0,1,6,1,6,1,6,1,6,1,6,1,0,1,0)
-maze5_data <- c(maze5_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze5_data <- c(maze5_data,0,0,1,6,1,6,1,6,1,6,1,6,1,0,0)
-maze5_data <- c(maze5_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze5_data <- c(maze5_data,0,1,6,1,6,1,6,1,6,1,6,1,0,1,0)
-maze5_data <- c(maze5_data,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0)
-maze5_data <- c(maze5_data,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-maze5 = matrix(maze5_data,nrow=16,ncol=15,byrow=TRUE);
-
-GHOST_SEC_TO_MOVE <- 2
-ZOMBIE_SEC_TO_MOVE <- 2
-
-# Game level map
-game_level_map <- dict()
-game_level_map$set("level1",list(
-  "name"="1",
-  "maze"=maze1,
-  "num_ghosts"= 3,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=0,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"= floor(dim(CORRIDOR %ai% maze1)[1] * 0.2),
-  "forward_vision"= 6,
-  "rear_vision"= 1,
-  "radius_to_exit"=5
-))
-game_level_map$set("level2",list(
-  "name"="2",
-  "maze"=maze11,
-  "num_ghosts"= 3,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=1,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"= floor(dim(CORRIDOR %ai% maze11)[1] * 0.2),
-  "forward_vision"=6,
-  "rear_vision"=1,
-  "radius_to_exit"=5
-))
-game_level_map$set("level3",list(
-  "name"="3",
-  "maze"=maze11,
-  "num_ghosts"=3,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=2,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"= floor(dim(CORRIDOR %ai% maze11)[1] * 0.2),
-  "forward_vision"=6,
-  "rear_vision"=1,
-  "radius_to_exit"=5
-))
-game_level_map$set("level4",list(
-  "name"="4",
-  "maze"=maze0,
-  "num_ghosts"=3,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=1,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"=floor(dim(CORRIDOR %ai% maze0)[1] * 0.2),
-  "forward_vision"=6,
-  "rear_vision"=1,
-  "radius_to_exit"=5
-))
-game_level_map$set("level5",list(
-  "name"="5",
-  "maze"=maze2,
-  "num_ghosts"=3,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=2,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"= floor(dim(CORRIDOR %ai% maze2)[1] * 0.2),
-  "forward_vision"=5,
-  "rear_vision"=1,
-  "radius_to_exit"=5
-))
-game_level_map$set("level6",list(
-  "name"="6",
-  "maze"= maze2,
-  "num_ghosts"=4,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=3,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"= floor(dim(CORRIDOR %ai% maze2)[1] * 0.2),
-  "forward_vision"=5,
-  "rear_vision"=1,
-  "radius_to_exit"=3
-))
-game_level_map$set("level7",list(
-  "name"="7",
-  "maze"=maze3,
-  "num_ghosts"=5,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=3,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"= floor(dim(CORRIDOR %ai% maze3)[1] * 0.2),
-  "forward_vision"=5,
-  "rear_vision"=1,
-  "radius_to_exit"=5
-))
-game_level_map$set("level8",list(
-  "name"="8",
-  "maze"=maze4,
-  "num_ghosts"=4,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=4,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"= floor(dim(CORRIDOR %ai% maze4)[1] * 0.2),
-  "forward_vision"=5,
-  "rear_vision"=1,
-  "radius_to_exit"=6
-))
-game_level_map$set("level9",list(
-  "name"="9",
-  "maze"=maze5,
-  "num_ghosts"=4,
-  "ghost_speed"=GHOST_SEC_TO_MOVE,
-  "num_zombies"=5,
-  "zombie_speed"=ZOMBIE_SEC_TO_MOVE,
-  "num_coins_gold"=floor(dim(CORRIDOR %ai% maze5)[1] * 0.2),
-  "forward_vision"=5,
-  "rear_vision"=1,
-  "radius_to_exit"=5
-))
 
 #
 build_players_view <- function(maze,
                                player_position,
                                ghost_positions,
                                zombie_positions,
+                               zombie2_positions,
+                               hostage_positions,
                                coin_gold_positions,
                                player_direction, 
                                forward_vision, 
@@ -882,6 +670,8 @@ build_players_view <- function(maze,
                                    player_position = player_position, 
                                    ghost_positions = ghost_positions, 
                                    zombie_positions = zombie_positions,
+                                   zombie2_positions = zombie2_positions,
+                                   hostage_positions = hostage_positions,
                                    coin_gold_positions = coin_gold_positions,
                                    direction = player_direction,
                                    forward_vision = forward_vision,
