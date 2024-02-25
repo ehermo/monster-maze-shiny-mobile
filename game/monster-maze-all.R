@@ -549,15 +549,18 @@ shuffle <- function(maze, num_ghosts = 1,
                                                     radius=radius_to_player))
   ghost_positions <- get_random_free_positions(maze=maze,
                                                num=num_ghosts,
-                                               occupied_positions=occupied_positions)
+                                               occupied_positions=occupied_positions,
+                                               distance = radius_to_player)
   occupied_positions <- append(occupied_positions,ghost_positions)
   zombie_positions <- get_random_free_positions(maze=maze,
                                                 num=num_zombies, 
-                                                occupied_positions=occupied_positions)
+                                                occupied_positions=occupied_positions,
+                                                distance=radius_to_player)
   occupied_positions <- append(occupied_positions,zombie_positions)
   zombie2_positions <- get_random_free_positions(maze=maze,
                                                 num=num_zombies2, 
-                                                occupied_positions=occupied_positions)
+                                                occupied_positions=occupied_positions,
+                                                distance=radius_to_player)
   player_direction <- get_random_direction()
   return (list("player_position"=player_position, 
                "ghost_positions"=ghost_positions, 

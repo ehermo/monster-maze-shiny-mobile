@@ -105,7 +105,7 @@ game_level_map$set("level7",list(
   "num_coins_gold"= floor(dim(CORRIDOR %ai% maze3)[1] * 0.1),
   "forward_vision"=5,
   "rear_vision"=1,
-  "radius_to_player"=4,
+  "radius_to_player"=3,
   "radius_to_exit"=5
 ))
 game_level_map$set("level8",list(
@@ -120,7 +120,7 @@ game_level_map$set("level8",list(
   "num_coins_gold"= floor(dim(CORRIDOR %ai% maze4)[1] * 0.1),
   "forward_vision"=5,
   "rear_vision"=1,
-  "radius_to_player"=4,
+  "radius_to_player"=3,
   "radius_to_exit"=6
 ))
 game_level_map$set("level9",list(
@@ -135,6 +135,6 @@ game_level_map$set("level9",list(
   "num_coins_gold"=floor(dim(CORRIDOR %ai% maze5)[1] * 0.2),
   "forward_vision"=5,
   "rear_vision"=1,
-  "radius_to_player"=4,
+  "radius_to_player"=1,
   "radius_to_exit"=5
 ))

@@ -366,11 +366,12 @@ and save their souls.
         game_info$lives <- game_info$lives - 1
       }
       if (game_info$lives == 0) {
+       disable_action_buttons()
+       hide_action_buttons()
        console$data <- ""
        isolate(autoInvalidate <- NULL)
        isolate(timerRunning(FALSE))
        hide_level_bar()
-       hide_action_buttons()
        shinyjs::runjs(paste0("background.stop()"))
        game_info$scene ="end"
       }
@@ -564,14 +565,14 @@ and save their souls.
           player_moves(0)
         }
         else {
+          disable_action_buttons()
+          hide_action_buttons()
           console$data <- ""
-          game_info$scene = "you_won"
           isolate(autoInvalidate <- NULL)
           isolate(timerRunning(FALSE))
           hide_level_bar()
-          hide_action_buttons()
           shinyjs::runjs(paste0("background.stop()"))
-          
+          game_info$scene = "you_won"
         }
         isolate(console$data <- sprintf("You have escaped ... for now"))
       }
